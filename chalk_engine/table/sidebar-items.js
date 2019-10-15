@@ -1,0 +1,1 @@
+initSidebarItems({"struct":[["Answer","An \"answer\" in the on-demand solver corresponds to a fully solved goal for a particular table (modulo delayed literals). It contains a substitution"],["AnswerIndex",""],["Table",""]]});

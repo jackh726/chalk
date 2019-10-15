@@ -1,0 +1,1 @@
+initSidebarItems({"fn":[["truncate",""]],"struct":[["Truncated","Result from `truncate`."],["Truncater",""]]});

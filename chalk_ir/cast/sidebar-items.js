@@ -1,0 +1,1 @@
+initSidebarItems({"struct":[["Casted",""]],"trait":[["Cast","The `Cast` trait is used to make annoying upcasts between logically equivalent types that imply wrappers. For example, one could convert a `DomainGoal` into a `Goal` by doing:"],["Caster","An iterator adapter that casts each element we are iterating over to some other type."]]});
