@@ -15,17 +15,14 @@ pub trait Split<TF: TypeFamily>: RustIrDatabase<TF> {
     /// any type parameters itself.
     fn split_projection<'p>(
         &self,
-        projection: &'p ProjectionTy<TF>,
+        associated_ty_id: &TypeId,
+        parameters: &'p Vec<Parameter<TF>>,
     ) -> (
         Arc<AssociatedTyDatum<TF>>,
         &'p [Parameter<TF>],
         &'p [Parameter<TF>],
     ) {
-        let ProjectionTy {
-            associated_ty_id,
-            ref parameters,
-        } = *projection;
-        let associated_ty_data = &self.associated_ty_data(associated_ty_id);
+        let associated_ty_data = &self.associated_ty_data(*associated_ty_id);
         let trait_datum = &self.trait_datum(associated_ty_data.trait_id);
         let trait_num_params = trait_datum.binders.len();
         let split_point = parameters.len() - trait_num_params;
@@ -38,17 +35,23 @@ pub trait Split<TF: TypeFamily>: RustIrDatabase<TF> {
     /// `split_projection`).
     fn trait_parameters_from_projection<'p>(
         &self,
-        projection: &'p ProjectionTy<TF>,
+        associated_ty_id: &TypeId,
+        parameters: &'p Vec<Parameter<TF>>,
     ) -> &'p [Parameter<TF>] {
-        let (_, trait_params, _) = self.split_projection(projection);
+        let (_, trait_params, _) = self.split_projection(associated_ty_id, parameters);
         trait_params
     }
 
     /// Given a projection `<P0 as Trait<P1..Pn>>::Item<Pn..Pm>`,
     /// returns the trait parameters `[P0..Pn]` (see
     /// `split_projection`).
-    fn trait_ref_from_projection<'p>(&self, projection: &'p ProjectionTy<TF>) -> TraitRef<TF> {
-        let (associated_ty_data, trait_params, _) = self.split_projection(&projection);
+    fn trait_ref_from_projection<'p>(
+        &self,
+        associated_ty_id: &TypeId,
+        parameters: &'p Vec<Parameter<TF>>,
+    ) -> TraitRef<TF> {
+        let (associated_ty_data, trait_params, _) =
+            self.split_projection(associated_ty_id, parameters);
         TraitRef {
             trait_id: associated_ty_data.trait_id,
             parameters: trait_params.to_owned(),

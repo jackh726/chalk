@@ -557,8 +557,13 @@ impl LowerDomainGoal for DomainGoal {
                 where_clause.lower(env)?.into_iter().casted().collect()
             }
             DomainGoal::Normalize { projection, ty } => {
+                let chalk_ir::ProjectionTy {
+                    associated_ty_id,
+                    parameters,
+                } = projection.lower(env)?;
                 vec![chalk_ir::DomainGoal::Normalize(chalk_ir::Normalize {
-                    projection: projection.lower(env)?,
+                    associated_ty_id,
+                    parameters,
                     ty: ty.lower(env)?,
                 })]
             }

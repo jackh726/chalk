@@ -84,7 +84,12 @@ impl tls::DebugContext for Program {
         projection_ty: &ProjectionTy<ChalkIr>,
         fmt: &mut fmt::Formatter,
     ) -> Result<(), fmt::Error> {
-        let (associated_ty_data, trait_params, other_params) = self.split_projection(projection_ty);
+        let chalk_ir::ProjectionTy {
+            associated_ty_id,
+            parameters,
+        } = projection_ty;
+        let (associated_ty_data, trait_params, other_params) =
+            self.split_projection(associated_ty_id, parameters);
         write!(
             fmt,
             "<{:?} as {:?}{:?}>::{}{:?}",

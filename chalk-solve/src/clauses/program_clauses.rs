@@ -96,6 +96,11 @@ impl<TF: TypeFamily> ToProgramClauses<TF> for AssociatedTyValue<TF> {
                 .into_iter()
                 .map(|wc| wc.substitute(&projection.parameters));
 
+            let ProjectionTy {
+                associated_ty_id,
+                parameters,
+            } = projection.clone();
+
             // Create the final program clause:
             //
             // ```notrust
@@ -108,7 +113,8 @@ impl<TF: TypeFamily> ToProgramClauses<TF> for AssociatedTyValue<TF> {
             // ```
             builder.push_clause(
                 Normalize {
-                    projection: projection.clone(),
+                    associated_ty_id,
+                    parameters,
                     ty: assoc_ty_value.ty,
                 },
                 impl_where_clauses.chain(assoc_ty_where_clauses),
@@ -577,7 +583,7 @@ impl<TF: TypeFamily> ToProgramClauses<TF> for AssociatedTyDatum<TF> {
             let projection_ty = projection.clone().intern();
 
             // Retrieve the trait ref embedding the associated type
-            let trait_ref = builder.db.trait_ref_from_projection(&projection);
+            let trait_ref = builder.db.trait_ref_from_projection(&self.id, &parameters);
 
             // Construct an application from the projection. So if we have `<T as Iterator>::Item`,
             // we would produce `(Iterator::Item)<T>`.
@@ -656,9 +662,15 @@ impl<TF: TypeFamily> ToProgramClauses<TF> for AssociatedTyDatum<TF> {
 
             // add new type parameter U
             builder.push_bound_ty(|builder, ty| {
+                let ProjectionTy {
+                    associated_ty_id,
+                    parameters,
+                } = projection.clone();
+
                 // `Normalize(<T as Foo>::Assoc -> U)`
                 let normalize = Normalize {
-                    projection: projection.clone(),
+                    associated_ty_id,
+                    parameters,
                     ty: ty.clone(),
                 };
 
