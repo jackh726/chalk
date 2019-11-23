@@ -128,11 +128,25 @@ impl<TF: TypeFamily> FoldInputTypes for ProjectionEq<TF> {
     }
 }
 
+impl<TF: TypeFamily> FoldInputTypes for Normalize<TF> {
+    fn fold(&self, accumulator: &mut Vec<Ty<TF>>) {
+        // XXX: Projection?
+        TyData::Projection(ProjectionTy {
+            associated_ty_id: self.associated_ty_id,
+            substitution: self.substitution.clone(),
+        })
+            .intern()
+            .fold(accumulator);
+        self.ty.fold(accumulator);
+    }
+}
+
 impl<TF: TypeFamily> FoldInputTypes for WhereClause<TF> {
     fn fold(&self, accumulator: &mut Vec<Ty<TF>>) {
         match self {
             WhereClause::Implemented(tr) => tr.fold(accumulator),
             WhereClause::ProjectionEq(p) => p.fold(accumulator),
+            WhereClause::Normalize(n) => n.fold(accumulator),
         }
     }
 }

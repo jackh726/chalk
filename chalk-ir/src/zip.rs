@@ -196,7 +196,7 @@ struct_zip!(impl[TF: TypeFamily] Zip<TF> for ProjectionTy<TF> {
     associated_ty_id,
     substitution,
 });
-struct_zip!(impl[TF: TypeFamily] Zip<TF> for Normalize<TF> { projection, ty });
+struct_zip!(impl[TF: TypeFamily] Zip<TF> for Normalize<TF> { associated_ty_id, substitution, ty });
 struct_zip!(impl[TF: TypeFamily] Zip<TF> for ProjectionEq<TF> { projection, ty });
 struct_zip!(impl[TF: TypeFamily] Zip<TF> for EqGoal<TF> { a, b });
 struct_zip!(impl[TF: TypeFamily] Zip<TF> for ProgramClauseImplication<TF> {
@@ -238,7 +238,7 @@ macro_rules! enum_zip {
 
 enum_zip!(impl<TF> for WellFormed<TF> { Trait, Ty });
 enum_zip!(impl<TF> for FromEnv<TF> { Trait, Ty });
-enum_zip!(impl<TF> for WhereClause<TF> { Implemented, ProjectionEq });
+enum_zip!(impl<TF> for WhereClause<TF> { Implemented, ProjectionEq, Normalize });
 enum_zip!(impl<TF> for DomainGoal<TF> {
     Holds,
     WellFormed,

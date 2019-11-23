@@ -609,6 +609,8 @@ impl<TF: TypeFamily> TraitRef<TF> {
 pub enum WhereClause<TF: TypeFamily> {
     Implemented(TraitRef<TF>),
     ProjectionEq(ProjectionEq<TF>),
+    // Can't be directly written, but generated when lowering
+    Normalize(Normalize<TF>),
 }
 
 #[derive(Clone, PartialEq, Eq, Hash, PartialOrd, Ord, Fold, HasTypeFamily)]
@@ -794,14 +796,22 @@ pub struct EqGoal<TF: TypeFamily> {
     pub b: Parameter<TF>,
 }
 
-/// Proves that the given projection **normalizes** to the given
-/// type. A projection `T::Foo` normalizes to the type `U` if we can
-/// **match it to an impl** and that impl has a `type Foo = V` where
-/// `U = V`.
+/// Proves that the given type id with a given set of parameters
+/// **normalizes** to the given type. A associated type `T::Foo`
+/// normalizes to the type `U` if we can **match it to an impl**
+/// and that impl has a `type Foo = V` where `U = V`.
 #[derive(Clone, PartialEq, Eq, Hash, PartialOrd, Ord, Fold)]
 pub struct Normalize<TF: TypeFamily> {
-    pub projection: ProjectionTy<TF>,
+    /// The associated type id, like `T::Foo`
+    pub associated_ty_id: AssocTypeId<TF>,
+    /// The parameters on the type
+    pub substitution: Substitution<TF>,
+    /// The type we try to normalize to
     pub ty: Ty<TF>,
+}
+
+impl<TF: TypeFamily> HasTypeFamily for Normalize<TF> {
+    type TypeFamily = TF;
 }
 
 /// Proves **equality** between a projection `T::Foo` and a type

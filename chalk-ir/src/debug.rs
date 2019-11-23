@@ -200,7 +200,11 @@ impl<'a, T: Debug> Debug for Angle<'a, T> {
 
 impl<TF: TypeFamily> Debug for Normalize<TF> {
     fn fmt(&self, fmt: &mut Formatter) -> Result<(), Error> {
-        write!(fmt, "Normalize({:?} -> {:?})", self.projection, self.ty)
+        write!(
+            fmt,
+            "Normalize({:?} ({:?}) -> {:?})",
+            self.associated_ty_id, self.substitution, self.ty
+        )
     }
 }
 
@@ -215,6 +219,7 @@ impl<TF: TypeFamily> Debug for WhereClause<TF> {
         match self {
             WhereClause::Implemented(tr) => write!(fmt, "Implemented({:?})", tr.with_colon()),
             WhereClause::ProjectionEq(p) => write!(fmt, "{:?}", p),
+            WhereClause::Normalize(n) => write!(fmt, "{:?}", n),
         }
     }
 }
