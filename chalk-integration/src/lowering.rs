@@ -573,13 +573,20 @@ impl LowerWhereClause<chalk_ir::WhereClause<ChalkIr>> for WhereClause {
             WhereClause::Implemented { trait_ref } => {
                 vec![chalk_ir::WhereClause::Implemented(trait_ref.lower(env)?)]
             }
-            WhereClause::ProjectionEq { projection, ty } => vec![
-                chalk_ir::WhereClause::ProjectionEq(chalk_ir::ProjectionEq {
-                    projection: projection.lower(env)?,
-                    ty: ty.lower(env)?,
-                }),
-                chalk_ir::WhereClause::Implemented(projection.trait_ref.lower(env)?),
-            ],
+            WhereClause::ProjectionEq { projection, ty } => {
+                let chalk_ir::ProjectionTy {
+                    associated_ty_id,
+                    substitution,
+                } = projection.lower(env)?;
+                vec![
+                    chalk_ir::WhereClause::Normalize(chalk_ir::Normalize {
+                        associated_ty_id,
+                        substitution,
+                        ty: ty.lower(env)?,
+                    }),
+                    chalk_ir::WhereClause::Implemented(projection.trait_ref.lower(env)?),
+                ]
+            }
         };
         Ok(where_clauses)
     }

@@ -120,7 +120,7 @@ pub(crate) fn program_clauses_for_goal<'db, TF: TypeFamily>(
     vec.extend(db.custom_clauses());
     program_clauses_that_could_match(db, environment, goal, &mut vec);
     program_clauses_for_env(db, environment, &mut vec);
-    vec.retain(|c| c.could_match(goal));
+    vec.retain(|c| {dbg!(&c, &goal); dbg!(c.could_match(goal))});
 
     debug!("vec = {:#?}", vec);
 
@@ -139,6 +139,7 @@ fn program_clauses_that_could_match<TF: TypeFamily>(
 ) {
     let builder = &mut ClauseBuilder::new(db, clauses);
 
+    dbg!(&goal);
     match goal {
         DomainGoal::Holds(WhereClause::Implemented(trait_ref)) => {
             let trait_id = trait_ref.trait_id;
@@ -253,7 +254,8 @@ fn program_clauses_that_could_match<TF: TypeFamily>(
             associated_ty_id,
             substitution,
             ty: _,
-        }) | DomainGoal::Holds(WhereClause::Normalize(Normalize {
+        })
+        | DomainGoal::Holds(WhereClause::Normalize(Normalize {
             associated_ty_id,
             substitution,
             ty: _,

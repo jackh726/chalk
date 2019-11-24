@@ -83,6 +83,7 @@ impl<TF: TypeFamily> Zip<TF> for () {
 
 impl<T: Zip<TF>, TF: TypeFamily> Zip<TF> for Vec<T> {
     fn zip_with<Z: Zipper<TF>>(zipper: &mut Z, a: &Self, b: &Self) -> Fallible<()> {
+        dbg!(&a, &b);
         <[T] as Zip<TF>>::zip_with(zipper, a, b)
     }
 }
@@ -145,6 +146,7 @@ macro_rules! eq_zip {
     ($TF:ident => $t:ty) => {
         impl<$TF: TypeFamily> Zip<$TF> for $t {
             fn zip_with<Z: Zipper<$TF>>(_zipper: &mut Z, a: &Self, b: &Self) -> Fallible<()> {
+                dbg!(&a, &b);
                 if a != b {
                     return Err(NoSolution);
                 }
@@ -168,6 +170,7 @@ macro_rules! struct_zip {
     (impl[$($param:tt)*] Zip<$TF:ty> for $self:ty { $($field:ident),* $(,)* } $($w:tt)*) => {
         impl<$($param)*> Zip<$TF> for $self $($w)* {
             fn zip_with<Z: Zipper<$TF>>(zipper: &mut Z, a: &Self, b: &Self) -> Fallible<()> {
+                dbg!(&a, &b);
                 // Validate that we have indeed listed all fields
                 let Self { $($field: _),* } = *a;
                 $(
@@ -219,9 +222,11 @@ macro_rules! enum_zip {
     (impl<$TF:ident $(, $param:ident)*> for $self:ty { $( $variant:ident ),* $(,)* } $($w:tt)*) => {
         impl<$TF: TypeFamily, $(, $param)*> Zip<$TF> for $self $($w)* {
             fn zip_with<Z: Zipper<$TF>>(zipper: &mut Z, a: &Self, b: &Self) -> Fallible<()> {
+                dbg!(&a, &b);
                 match (a, b) {
                     $(
                         (Self :: $variant (f_a), Self :: $variant (f_b)) => {
+                            dbg!(&f_a, &f_b);
                             Zip::zip_with(zipper, f_a, f_b)
                         }
                     )*

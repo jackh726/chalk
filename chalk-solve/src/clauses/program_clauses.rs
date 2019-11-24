@@ -67,8 +67,12 @@ impl<TF: TypeFamily> ToProgramClauses<TF> for AssociatedTyValue<TF> {
         let impl_datum = builder.db.impl_datum(self.impl_id);
         let associated_ty = builder.db.associated_ty_data(self.associated_ty_id);
 
+        dbg!(&impl_datum, &associated_ty);
+
         builder.push_binders(&self.value, |builder, assoc_ty_value| {
             let all_parameters = builder.placeholders_in_scope().to_vec();
+
+            dbg!(&all_parameters);
 
             // Get the projection for this associated type:
             //
@@ -77,6 +81,8 @@ impl<TF: TypeFamily> ToProgramClauses<TF> for AssociatedTyValue<TF> {
             let (impl_params, projection) = builder
                 .db
                 .impl_parameters_and_projection_from_associated_ty_value(&all_parameters, self);
+
+            dbg!(&impl_params, &projection);
 
             // Assemble the full list of conditions for projection to be valid.
             // This comes in two parts, marked as (1) and (2) in doc above:
