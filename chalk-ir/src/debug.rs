@@ -247,10 +247,10 @@ impl<TF: TypeFamily> Debug for WellFormed<TF> {
 impl<TF: TypeFamily> Debug for DomainGoal<TF> {
     fn fmt(&self, fmt: &mut Formatter) -> Result<(), Error> {
         match self {
-            DomainGoal::Holds(n) => write!(fmt, "{:?}", n),
+            DomainGoal::Holds(n) => write!(fmt, "Holds({:?})", n),
             DomainGoal::WellFormed(n) => write!(fmt, "{:?}", n),
             DomainGoal::FromEnv(n) => write!(fmt, "{:?}", n),
-            DomainGoal::Normalize(n) => write!(fmt, "{:?}", n),
+            DomainGoal::Normalize(n) => write!(fmt, "Normalize({:?})", n),
             DomainGoal::IsLocal(n) => write!(fmt, "IsLocal({:?})", n),
             DomainGoal::IsUpstream(n) => write!(fmt, "IsUpstream({:?})", n),
             DomainGoal::IsFullyVisible(n) => write!(fmt, "IsFullyVisible({:?})", n),
@@ -333,8 +333,8 @@ impl<T: Debug> Debug for Binders<T> {
 impl<TF: TypeFamily> Debug for ProgramClause<TF> {
     fn fmt(&self, fmt: &mut Formatter) -> Result<(), Error> {
         match self {
-            ProgramClause::Implies(pc) => write!(fmt, "{:?}", pc),
-            ProgramClause::ForAll(pc) => write!(fmt, "{:?}", pc),
+            ProgramClause::Implies(pc) => write!(fmt, "Implies({:?})", pc),
+            ProgramClause::ForAll(pc) => write!(fmt, "ForAll({:?})", pc),
         }
     }
 }
