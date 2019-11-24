@@ -250,7 +250,7 @@ impl<TF: TypeFamily> Debug for DomainGoal<TF> {
             DomainGoal::Holds(n) => write!(fmt, "Holds({:?})", n),
             DomainGoal::WellFormed(n) => write!(fmt, "{:?}", n),
             DomainGoal::FromEnv(n) => write!(fmt, "{:?}", n),
-            DomainGoal::Normalize(n) => write!(fmt, "Normalize({:?})", n),
+            //DomainGoal::Normalize(n) => write!(fmt, "Normalize({:?})", n),
             DomainGoal::IsLocal(n) => write!(fmt, "IsLocal({:?})", n),
             DomainGoal::IsUpstream(n) => write!(fmt, "IsUpstream({:?})", n),
             DomainGoal::IsFullyVisible(n) => write!(fmt, "IsFullyVisible({:?})", n),

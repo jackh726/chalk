@@ -123,7 +123,7 @@ where
 
 impl<TF: TypeFamily> CastTo<DomainGoal<TF>> for Normalize<TF> {
     fn cast_to(self) -> DomainGoal<TF> {
-        DomainGoal::Normalize(self)
+        DomainGoal::Holds(WhereClause::Normalize(self))
     }
 }
 

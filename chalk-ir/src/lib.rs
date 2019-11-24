@@ -700,8 +700,7 @@ pub enum DomainGoal<TF: TypeFamily> {
 
     FromEnv(FromEnv<TF>),
 
-    Normalize(Normalize<TF>),
-
+    //Normalize(Normalize<TF>),
     /// True if a type is considered to have been "defined" by the current crate. This is true for
     /// a `struct Foo { }` but false for a `#[upstream] struct Foo { }`. However, for fundamental types
     /// like `Box<T>`, it is true if `T` is local.
