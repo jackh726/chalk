@@ -614,11 +614,13 @@ impl LowerDomainGoal for DomainGoal {
                     associated_ty_id,
                     substitution,
                 } = projection.lower(env)?;
-                vec![chalk_ir::DomainGoal::Normalize(chalk_ir::Normalize {
-                    associated_ty_id,
-                    substitution,
-                    ty: ty.lower(env)?,
-                })]
+                vec![chalk_ir::DomainGoal::Holds(
+                    chalk_ir::WhereClause::Normalize(chalk_ir::Normalize {
+                        associated_ty_id,
+                        substitution,
+                        ty: ty.lower(env)?,
+                    }),
+                )]
             }
             DomainGoal::TyWellFormed { ty } => vec![chalk_ir::DomainGoal::WellFormed(
                 chalk_ir::WellFormed::Ty(ty.lower(env)?),

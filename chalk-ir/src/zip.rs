@@ -248,7 +248,7 @@ enum_zip!(impl<TF> for DomainGoal<TF> {
     Holds,
     WellFormed,
     FromEnv,
-    Normalize,
+    //Normalize,
     IsLocal,
     IsUpstream,
     IsFullyVisible,

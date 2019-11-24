@@ -13,8 +13,7 @@ where
     TF: TypeFamily,
 {
     fn could_match(&self, other: &T) -> bool {
-        dbg!(&self, &other);
-        return dbg!(Zip::zip_with(&mut MatchZipper, self, other).is_ok());
+        return Zip::zip_with(&mut MatchZipper, self, other).is_ok();
 
         struct MatchZipper;
 
@@ -57,7 +56,6 @@ where
 
 impl<TF: TypeFamily> CouldMatch<DomainGoal<TF>> for ProgramClause<TF> {
     fn could_match(&self, other: &DomainGoal<TF>) -> bool {
-        dbg!(&self, &other);
         match self {
             ProgramClause::Implies(implication) => implication.consequence.could_match(other),
 
