@@ -9,6 +9,7 @@ fn normalize_basic() {
             trait Iterator { type Item; }
             struct Vec<T> { }
             struct u32 { }
+            struct i32 { }
             impl<T> Iterator for Vec<T> {
                 type Item = T;
             }
@@ -134,6 +135,11 @@ fn projection_equality() {
             impl Trait1 for S {
                 type Type = u32;
             }
+            struct i32 {}
+            struct X {}
+            impl Trait1 for X {
+                type Type = i32;
+            }
         }
 
         goal {
@@ -142,6 +148,15 @@ fn projection_equality() {
             }
         } yields {
             "Unique; substitution [?0 := u32], lifetime constraints []"
+        }
+
+        goal {
+            exists<T, U> {
+                T: Trait2<U>
+            }
+        } yields {
+            // FIXME(rust-lang/chalk#234): we can actually give an answer here: `[?0 := !1_0, ?1 := (Trait1::Type)<^0>]`
+            "Ambiguous; no inference guidance"
         }
     }
 }
