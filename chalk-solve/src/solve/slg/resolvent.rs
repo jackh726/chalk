@@ -372,6 +372,10 @@ impl<TF: TypeFamily> Zipper<TF> for AnswerSubstitutor<'_, TF> {
                 Zip::zip_with(self, answer, pending)
             }
 
+            (TyData::NormalizedProjection(_), TyData::NormalizedProjection(_)) => {
+                unimplemented!();
+            }
+
             (TyData::Function(answer), TyData::Function(pending)) => {
                 self.answer_binders += answer.num_binders;
                 self.pending_binders += pending.num_binders;
@@ -390,6 +394,7 @@ impl<TF: TypeFamily> Zipper<TF> for AnswerSubstitutor<'_, TF> {
             | (TyData::Apply(_), _)
             | (TyData::Dyn(_), _)
             | (TyData::Projection(_), _)
+            | (TyData::NormalizedProjection(_), _)
             | (TyData::Placeholder(_), _)
             | (TyData::Function(_), _) => panic!(
                 "structural mismatch between answer `{:?}` and pending goal `{:?}`",

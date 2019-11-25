@@ -157,6 +157,12 @@ impl<TF: TypeFamily> CastTo<TyData<TF>> for ProjectionTy<TF> {
     }
 }
 
+impl<TF: TypeFamily> CastTo<TyData<TF>> for NormalizedProjectionTy<TF> {
+    fn cast_to(self) -> TyData<TF> {
+        TyData::NormalizedProjection(self)
+    }
+}
+
 impl<TF: TypeFamily> CastTo<Parameter<TF>> for Ty<TF> {
     fn cast_to(self) -> Parameter<TF> {
         Parameter::new(ParameterKind::Ty(self))

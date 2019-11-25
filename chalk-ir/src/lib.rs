@@ -260,6 +260,11 @@ pub enum TyData<TF: TypeFamily> {
     /// trait and all its parameters are fully known.
     Projection(ProjectionTy<TF>),
 
+    /// A "projection" type corresponds to an (unnormalized)
+    /// projection like `<P0 as Trait<P1..Pn>>::Foo`. Note that the
+    /// trait and all its parameters are fully known.
+    NormalizedProjection(NormalizedProjectionTy<TF>),
+
     /// A function type such as `for<'a> fn(&'a u32)`.
     /// Note that "higher-ranked" types (starting with `for<>`) are either
     /// function types or dyn types, and do not appear otherwise in Rust
@@ -575,6 +580,18 @@ pub struct ProjectionTy<TF: TypeFamily> {
 }
 
 impl<TF: TypeFamily> ProjectionTy<TF> {
+    pub fn intern(self) -> Ty<TF> {
+        Ty::new(self)
+    }
+}
+
+#[derive(Clone, PartialEq, Eq, Hash, PartialOrd, Ord, Fold, HasTypeFamily)]
+pub struct NormalizedProjectionTy<TF: TypeFamily> {
+    pub projection: ProjectionTy<TF>,
+    pub normalized: Box<Ty<TF>>,
+}
+
+impl<TF: TypeFamily> NormalizedProjectionTy<TF> {
     pub fn intern(self) -> Ty<TF> {
         Ty::new(self)
     }
