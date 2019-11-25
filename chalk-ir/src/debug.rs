@@ -185,7 +185,7 @@ impl<TF: TypeFamily> Debug for ProjectionTy<TF> {
 impl<TF: TypeFamily> Debug for NormalizedProjectionTy<TF> {
     fn fmt(&self, fmt: &mut Formatter) -> Result<(), Error> {
         TF::debug_projection(&self.projection, fmt)?;
-        write!(fmt, " -> {:?}", self.normalized)
+        write!(fmt, " as {:?}", self.normalized)
     }
 }
 
