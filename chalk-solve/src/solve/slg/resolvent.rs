@@ -372,8 +372,8 @@ impl<TF: TypeFamily> Zipper<TF> for AnswerSubstitutor<'_, TF> {
                 Zip::zip_with(self, answer, pending)
             }
 
-            (TyData::NormalizedProjection(_), TyData::NormalizedProjection(_)) => {
-                unimplemented!();
+            (TyData::NormalizedProjection(answer), TyData::NormalizedProjection(pending)) => {
+                Zip::zip_with(self, answer, pending)
             }
 
             (TyData::Function(answer), TyData::Function(pending)) => {

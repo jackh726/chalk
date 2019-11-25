@@ -348,7 +348,10 @@ fn match_ty<TF: TypeFamily>(
             .db
             .associated_ty_data(projection_ty.associated_ty_id)
             .to_program_clauses(builder),
-        TyData::NormalizedProjection(_) => unimplemented!(),
+        TyData::NormalizedProjection(projection_ty) => builder
+            .db
+            .associated_ty_data(projection_ty.projection.associated_ty_id)
+            .to_program_clauses(builder),
         TyData::Function(quantified_ty) => quantified_ty
             .parameters
             .iter()

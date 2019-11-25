@@ -95,8 +95,9 @@ impl<TF: TypeFamily> FoldInputTypes for Ty<TF> {
             TyData::Placeholder(_) => {
                 accumulator.push(self.clone());
             }
-            TyData::NormalizedProjection(_) => {
-                unimplemented!();
+            TyData::NormalizedProjection(proj) => {
+                accumulator.push(self.clone());
+                proj.projection.substitution.fold(accumulator);
             }
 
             // Type parameters do not carry any input types (so we can sort of assume they are
@@ -134,10 +135,13 @@ impl<TF: TypeFamily> FoldInputTypes for ProjectionEq<TF> {
 impl<TF: TypeFamily> FoldInputTypes for Normalize<TF> {
     fn fold(&self, accumulator: &mut Vec<Ty<TF>>) {
         dbg!(&self, &accumulator);
-        // XXX: Projection?
-        TyData::Projection(ProjectionTy {
+        let projection = ProjectionTy {
             associated_ty_id: self.associated_ty_id,
             substitution: self.substitution.clone(),
+        };
+        TyData::NormalizedProjection(NormalizedProjectionTy {
+            projection,
+            normalized: Box::new(self.ty.clone()),
         })
         .intern()
         .fold(accumulator);

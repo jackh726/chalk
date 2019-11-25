@@ -190,7 +190,7 @@ impl<TF: TypeFamily> Debug for NormalizedProjectionTy<TF> {
                 self.projection.substitution.with_angle()
             )
         })?;
-        write!(fmt, " -> {:?}", self.normalized)
+        write!(fmt, " as {:?}", self.normalized)
     }
 }
 
@@ -343,8 +343,8 @@ impl<T: Debug> Debug for Binders<T> {
 impl<TF: TypeFamily> Debug for ProgramClause<TF> {
     fn fmt(&self, fmt: &mut Formatter) -> Result<(), Error> {
         match self {
-            ProgramClause::Implies(pc) => write!(fmt, "Implies({:?})", pc),
-            ProgramClause::ForAll(pc) => write!(fmt, "ForAll({:?})", pc),
+            ProgramClause::Implies(pc) => write!(fmt, "{:?}", pc),
+            ProgramClause::ForAll(pc) => write!(fmt, "{:?}", pc),
         }
     }
 }
