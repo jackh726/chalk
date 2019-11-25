@@ -454,6 +454,10 @@ impl MayInvalidate {
             | (TyData::Opaque(_), _)
             | (TyData::Apply(_), _)
             | (TyData::Projection(_), _) => true,
+
+            (TyData::NormalizedProjection(_), _) => {
+                unimplemented!();
+            }
         }
     }
 

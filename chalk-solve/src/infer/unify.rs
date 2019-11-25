@@ -194,6 +194,11 @@ impl<'t, TF: TypeFamily> Unifier<'t, TF> {
                 self.unify_projection_ty(proj, b)
             }
 
+            (&TyData::NormalizedProjection(_), _)
+            | (_, &TyData::NormalizedProjection(_)) => {
+                unimplemented!();
+            }
+
             (TyData::BoundVar(_), _) | (_, TyData::BoundVar(_)) => panic!(
                 "unification encountered bound variable: a={:?} b={:?}",
                 a, b

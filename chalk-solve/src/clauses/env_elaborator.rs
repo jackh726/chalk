@@ -66,6 +66,9 @@ impl<'me, TF: TypeFamily> EnvElaborator<'me, TF> {
             TyData::Projection(projection_ty) => {
                 self.visit_projection_ty(projection_ty);
             }
+            TyData::NormalizedProjection(_) => {
+                unimplemented!();
+            }
 
             // FIXME(#203) -- We haven't fully figured out the implied
             // bounds story around object and impl trait types.
