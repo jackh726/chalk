@@ -76,6 +76,9 @@ impl<TF: TypeFamily> FoldInputTypes for Ty<TF> {
                 accumulator.push(self.clone());
                 proj.parameters.fold(accumulator);
             }
+            TyData::NormalizedProjection(_) => {
+                unimplemented!();
+            }
 
             // Type parameters do not carry any input types (so we can sort of assume they are
             // always WF).

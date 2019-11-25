@@ -192,6 +192,18 @@ impl<TF: TypeFamily> AntiUnifier<'_, TF> {
                 self.aggregate_projection_tys(apply1, apply2)
             }
 
+            (TyData::NormalizedProjection(_), TyData::NormalizedProjection(_)) => {
+                unimplemented!();
+            }
+
+            (TyData::NormalizedProjection(_), _) => {
+                unimplemented!();
+            }
+
+            (_, TyData::NormalizedProjection(_)) => {
+                unimplemented!();
+            }
+
             // Mismatched base kinds.
             (TyData::InferenceVar(_), _)
             | (TyData::BoundVar(_), _)
