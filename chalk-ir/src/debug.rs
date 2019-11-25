@@ -185,7 +185,7 @@ impl<TF: TypeFamily> Debug for ProjectionTy<TF> {
 impl<TF: TypeFamily> Debug for NormalizedProjectionTy<TF> {
     fn fmt(&self, fmt: &mut Formatter) -> Result<(), Error> {
         TF::debug_projection(&self.projection, fmt)?;
-        write!(fmt, " -> {:?}", self.normalized)
+        write!(fmt, " as {:?}", self.normalized)
     }
 }
 
@@ -213,7 +213,9 @@ impl<TF: TypeFamily> Debug for Normalize<TF> {
         write!(
             fmt,
             "Normalize({:?}{:?} -> {:?})",
-            self.associated_ty_id, Angle(&self.parameters), self.ty
+            self.associated_ty_id,
+            Angle(&self.parameters),
+            self.ty
         )
     }
 }
@@ -340,8 +342,8 @@ impl<T: Debug> Debug for Binders<T> {
 impl<TF: TypeFamily> Debug for ProgramClause<TF> {
     fn fmt(&self, fmt: &mut Formatter) -> Result<(), Error> {
         match self {
-            ProgramClause::Implies(pc) => write!(fmt, "Implies({:?})", pc),
-            ProgramClause::ForAll(pc) => write!(fmt, "ForAll({:?})", pc),
+            ProgramClause::Implies(pc) => write!(fmt, "{:?}", pc),
+            ProgramClause::ForAll(pc) => write!(fmt, "{:?}", pc),
         }
     }
 }

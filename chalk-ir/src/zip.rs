@@ -195,6 +195,10 @@ struct_zip!(impl[TF: TypeFamily] Zip<TF> for ProjectionTy<TF> {
     associated_ty_id,
     parameters,
 });
+struct_zip!(impl[TF: TypeFamily] Zip<TF> for NormalizedProjectionTy<TF> {
+    projection,
+    normalized,
+});
 struct_zip!(impl[TF: TypeFamily] Zip<TF> for Normalize<TF> { associated_ty_id, parameters, ty });
 struct_zip!(impl[TF: TypeFamily] Zip<TF> for ProjectionEq<TF> { projection, ty });
 struct_zip!(impl[TF: TypeFamily] Zip<TF> for EqGoal<TF> { a, b });

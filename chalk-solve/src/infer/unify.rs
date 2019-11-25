@@ -194,9 +194,11 @@ impl<'t, TF: TypeFamily> Unifier<'t, TF> {
                 self.unify_projection_ty(proj, b)
             }
 
-            (&TyData::NormalizedProjection(_), _)
-            | (_, &TyData::NormalizedProjection(_)) => {
-                unimplemented!();
+            (_, &TyData::NormalizedProjection(ref proj)) => {
+                self.unify_projection_ty(&proj.projection, a)
+            }
+            (&TyData::NormalizedProjection(ref proj), _) => {
+                self.unify_projection_ty(&proj.projection, b)
             }
 
             (TyData::BoundVar(_), _) | (_, TyData::BoundVar(_)) => panic!(
