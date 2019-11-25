@@ -1296,3 +1296,75 @@ fn coinductive_unsound2() {
         }
     }
 }
+
+#[test]
+fn projection_equality_slg() {
+    test! {
+        program {
+            trait Trait1 {
+                type Type;
+            }
+            trait Trait2<T> { }
+            impl<T, U> Trait2<T> for U where U: Trait1<Type = T> {}
+
+            struct u32 {}
+            struct S {}
+            impl Trait1 for S {
+                type Type = u32;
+            }
+            struct i32 {}
+            struct X {}
+            impl Trait1 for X {
+                type Type = i32;
+            }
+        }
+
+        goal {
+            exists<U> {
+                S: Trait2<U>
+            }
+        } first 1 with max 10 {
+            r"[
+                Answer {
+                    subst: Canonical {
+                        value: ConstrainedSubst {
+                            subst: [?0 := u32]
+                            constraints: []
+                        }
+                        binders: []
+                    }
+                    ambiguous: false
+                }
+            ]"
+        }
+
+        goal {
+            exists<T, U> {
+                T: Trait2<U>
+            }
+        } first 3 with max 10 {
+            r"[
+                Answer {
+                    subst: Canonical {
+                        value: ConstrainedSubst {
+                            subst: [?0 := S, ?1 := u32]
+                            constraints: []
+                        }
+                        binders: []
+                    }
+                    ambiguous: false
+                }
+                Answer {
+                    subst: Canonical {
+                        value: ConstrainedSubst {
+                            subst: [?0 := X, ?1 := i32]
+                            constraints: []
+                        }
+                        binders: []
+                    }
+                    ambiguous: false
+                }
+            ]"
+        }
+    }
+}

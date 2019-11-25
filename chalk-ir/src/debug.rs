@@ -204,8 +204,8 @@ impl<TF: TypeFamily> Debug for Normalize<TF> {
     fn fmt(&self, fmt: &mut Formatter) -> Result<(), Error> {
         write!(
             fmt,
-            "Normalize({:?} ({:?}) -> {:?})",
-            self.associated_ty_id, self.parameters, self.ty
+            "Normalize({:?}{:?} -> {:?})",
+            self.associated_ty_id, Angle(&self.parameters), self.ty
         )
     }
 }
@@ -247,10 +247,9 @@ impl<TF: TypeFamily> Debug for WellFormed<TF> {
 impl<TF: TypeFamily> Debug for DomainGoal<TF> {
     fn fmt(&self, fmt: &mut Formatter) -> Result<(), Error> {
         match self {
-            DomainGoal::Holds(n) => write!(fmt, "Holds({:?})", n),
+            DomainGoal::Holds(n) => write!(fmt, "{:?}", n),
             DomainGoal::WellFormed(n) => write!(fmt, "{:?}", n),
             DomainGoal::FromEnv(n) => write!(fmt, "{:?}", n),
-            //DomainGoal::Normalize(n) => write!(fmt, "Normalize({:?})", n),
             DomainGoal::IsLocal(n) => write!(fmt, "IsLocal({:?})", n),
             DomainGoal::IsUpstream(n) => write!(fmt, "IsUpstream({:?})", n),
             DomainGoal::IsFullyVisible(n) => write!(fmt, "IsFullyVisible({:?})", n),

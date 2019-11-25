@@ -120,10 +120,7 @@ pub(crate) fn program_clauses_for_goal<'db, TF: TypeFamily>(
     vec.extend(db.custom_clauses());
     program_clauses_that_could_match(db, environment, goal, &mut vec);
     program_clauses_for_env(db, environment, &mut vec);
-    vec.retain(|c| {
-        dbg!(&c, &goal);
-        dbg!(c.could_match(goal))
-    });
+    vec.retain(|c| c.could_match(goal));
 
     debug!("vec = {:#?}", vec);
 
