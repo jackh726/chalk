@@ -177,6 +177,11 @@ impl<TF: TypeFamily> ToProgramClauses<TF> for StructDatum<TF> {
             };
             let self_ty = self_appl_ty.clone().intern();
 
+            const SIMPLE_TEST: bool = true;
+            if SIMPLE_TEST {
+                return;
+            }
+
             // forall<T> {
             //     WF(Foo<T>) :- WF(T: Eq).
             // }
@@ -387,6 +392,10 @@ impl<TF: TypeFamily> ToProgramClauses<TF> for TraitDatum<TF> {
     fn to_program_clauses(&self, builder: &mut ClauseBuilder<'_, TF>) {
         let binders = self.binders.map_ref(|b| &b.where_clauses);
         builder.push_binders(&binders, |builder, where_clauses| {
+            const SIMPLE_TEST: bool = true;
+            if SIMPLE_TEST {
+                return;
+            }
             let parameters = builder.placeholders_in_scope().to_vec();
 
             let trait_ref = chalk_ir::TraitRef {
@@ -600,58 +609,61 @@ impl<TF: TypeFamily> ToProgramClauses<TF> for AssociatedTyDatum<TF> {
             //    }
             builder.push_fact(projection_eq);
 
-            // Well-formedness of projection type.
-            //
-            //    forall<Self> {
-            //        WellFormed((Foo::Assoc)<Self>) :- WellFormed(Self: Foo), WellFormed(WC).
-            //    }
-            builder.push_clause(
-                WellFormed::Ty(app_ty.clone()),
-                iter::once(WellFormed::Trait(trait_ref.clone()).cast::<Goal<_>>()).chain(
-                    where_clauses
-                        .iter()
-                        .cloned()
-                        .map(|qwc| qwc.into_well_formed_goal())
-                        .casted(),
-                ),
-            );
+            const SIMPLE_TEST: bool = true;
+            if !SIMPLE_TEST {
+                // Well-formedness of projection type.
+                //
+                //    forall<Self> {
+                //        WellFormed((Foo::Assoc)<Self>) :- WellFormed(Self: Foo), WellFormed(WC).
+                //    }
+                builder.push_clause(
+                    WellFormed::Ty(app_ty.clone()),
+                    iter::once(WellFormed::Trait(trait_ref.clone()).cast::<Goal<_>>()).chain(
+                        where_clauses
+                            .iter()
+                            .cloned()
+                            .map(|qwc| qwc.into_well_formed_goal())
+                            .casted(),
+                    ),
+                );
 
-            // Assuming well-formedness of projection type means we can assume
-            // the trait ref as well. Mostly used in function bodies.
-            //
-            //    forall<Self> {
-            //        FromEnv(Self: Foo) :- FromEnv((Foo::Assoc)<Self>).
-            //    }
-            builder.push_clause(FromEnv::Trait(trait_ref.clone()), Some(app_ty.from_env()));
+                // Assuming well-formedness of projection type means we can assume
+                // the trait ref as well. Mostly used in function bodies.
+                //
+                //    forall<Self> {
+                //        FromEnv(Self: Foo) :- FromEnv((Foo::Assoc)<Self>).
+                //    }
+                builder.push_clause(FromEnv::Trait(trait_ref.clone()), Some(app_ty.from_env()));
 
-            // Reverse rule for where clauses.
-            //
-            //    forall<Self> {
-            //        FromEnv(WC) :- FromEnv((Foo::Assoc)<Self>).
-            //    }
-            //
-            // This is really a family of clauses, one for each where clause.
-            for qwc in &where_clauses {
-                builder.push_binders(qwc, |builder, wc| {
-                    builder.push_clause(wc.into_from_env_goal(), Some(FromEnv::Ty(app_ty.clone())));
-                });
-            }
+                // Reverse rule for where clauses.
+                //
+                //    forall<Self> {
+                //        FromEnv(WC) :- FromEnv((Foo::Assoc)<Self>).
+                //    }
+                //
+                // This is really a family of clauses, one for each where clause.
+                for qwc in &where_clauses {
+                    builder.push_binders(qwc, |builder, wc| {
+                        builder.push_clause(wc.into_from_env_goal(), Some(FromEnv::Ty(app_ty.clone())));
+                    });
+                }
 
-            // Reverse rule for implied bounds.
-            //
-            //    forall<Self> {
-            //        FromEnv(<Self as Foo>::Assoc: Bounds) :- FromEnv(Self: Foo), WC
-            //    }
-            for quantified_bound in &bounds {
-                builder.push_binders(quantified_bound, |builder, bound| {
-                    for wc in bound.into_where_clauses(projection_ty.clone()) {
-                        builder.push_clause(
-                            wc.into_from_env_goal(),
-                            iter::once(FromEnv::Trait(trait_ref.clone()).cast::<Goal<_>>())
-                                .chain(where_clauses.iter().cloned().casted()),
-                        );
-                    }
-                });
+                // Reverse rule for implied bounds.
+                //
+                //    forall<Self> {
+                //        FromEnv(<Self as Foo>::Assoc: Bounds) :- FromEnv(Self: Foo), WC
+                //    }
+                for quantified_bound in &bounds {
+                    builder.push_binders(quantified_bound, |builder, bound| {
+                        for wc in bound.into_where_clauses(projection_ty.clone()) {
+                            builder.push_clause(
+                                wc.into_from_env_goal(),
+                                iter::once(FromEnv::Trait(trait_ref.clone()).cast::<Goal<_>>())
+                                    .chain(where_clauses.iter().cloned().casted()),
+                            );
+                        }
+                    });
+                }
             }
 
             // add new type parameter U
