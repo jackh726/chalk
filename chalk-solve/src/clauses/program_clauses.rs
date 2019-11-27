@@ -96,6 +96,12 @@ impl<TF: TypeFamily> ToProgramClauses<TF> for AssociatedTyValue<TF> {
                 .into_iter()
                 .map(|wc| wc.substitute(&projection.parameters));
 
+            let asocciated_projection = ProjectionTy {
+                associated_ty_id: projection.associated_ty_id.clone(),
+                parameters: projection.parameters.clone(),
+                normalized: Some(Box::new(assoc_ty_value.ty)),
+            }.intern();
+
             // Create the final program clause:
             //
             // ```notrust
@@ -109,7 +115,7 @@ impl<TF: TypeFamily> ToProgramClauses<TF> for AssociatedTyValue<TF> {
             builder.push_clause(
                 Normalize {
                     projection: projection.clone(),
-                    ty: assoc_ty_value.ty,
+                    ty: asocciated_projection,
                 },
                 impl_where_clauses.chain(assoc_ty_where_clauses),
             );
