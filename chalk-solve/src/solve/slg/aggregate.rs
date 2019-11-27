@@ -242,10 +242,12 @@ impl<TF: TypeFamily> AntiUnifier<'_, TF> {
         let ProjectionTy {
             associated_ty_id: name1,
             parameters: parameters1,
+            normalized: normalized1,
         } = proj1;
         let ProjectionTy {
             associated_ty_id: name2,
             parameters: parameters2,
+            normalized: normalized2,
         } = proj2;
 
         self.aggregate_name_and_substs(name1, parameters1, name2, parameters2)
@@ -253,6 +255,7 @@ impl<TF: TypeFamily> AntiUnifier<'_, TF> {
                 TyData::Projection(ProjectionTy {
                     associated_ty_id,
                     parameters,
+                    normalized: None,
                 })
                 .intern()
             })

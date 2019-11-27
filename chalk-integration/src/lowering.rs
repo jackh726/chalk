@@ -902,6 +902,7 @@ impl LowerProjectionTy for ProjectionTy {
         Ok(chalk_ir::ProjectionTy {
             associated_ty_id: lookup.id,
             parameters: args,
+            normalized: None,
         })
     }
 }

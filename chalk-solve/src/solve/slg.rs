@@ -490,10 +490,12 @@ impl MayInvalidate {
         let ProjectionTy {
             associated_ty_id: new_name,
             parameters: new_parameters,
+            normalized: new_normalized,
         } = new;
         let ProjectionTy {
             associated_ty_id: current_name,
             parameters: current_parameters,
+            normalized: current_normalized,
         } = current;
 
         self.aggregate_name_and_substs(new_name, new_parameters, current_name, current_parameters)

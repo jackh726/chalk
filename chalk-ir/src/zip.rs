@@ -113,6 +113,15 @@ impl<T: Zip<TF>, TF: TypeFamily> Zip<TF> for Box<T> {
     }
 }
 
+impl <T: Zip<TF>, TF: TypeFamily> Zip<TF> for Option<T> {
+    fn zip_with<Z: Zipper<TF>>(zipper: &mut Z, a: &Self, b: &Self) -> Fallible<()> {
+        match (a, b) {
+            (Some(a), Some(b)) => <T as Zip<TF>>::zip_with(zipper, a, b),
+            _ => Ok(()),
+        }
+    }
+}
+
 impl<T: Zip<TF>, U: Zip<TF>, TF: TypeFamily> Zip<TF> for (T, U) {
     fn zip_with<Z: Zipper<TF>>(zipper: &mut Z, a: &Self, b: &Self) -> Fallible<()> {
         Zip::zip_with(zipper, &a.0, &b.0)?;
@@ -194,6 +203,7 @@ struct_zip!(impl[TF: TypeFamily] Zip<TF> for ApplicationTy<TF> { name, parameter
 struct_zip!(impl[TF: TypeFamily] Zip<TF> for ProjectionTy<TF> {
     associated_ty_id,
     parameters,
+    normalized,
 });
 struct_zip!(impl[TF: TypeFamily] Zip<TF> for Normalize<TF> { projection, ty });
 struct_zip!(impl[TF: TypeFamily] Zip<TF> for NormalizedProjectionTy<TF> {

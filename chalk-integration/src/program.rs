@@ -85,15 +85,31 @@ impl tls::DebugContext for Program {
         fmt: &mut fmt::Formatter,
     ) -> Result<(), fmt::Error> {
         let (associated_ty_data, trait_params, other_params) = self.split_projection(projection_ty);
-        write!(
-            fmt,
-            "<{:?} as {:?}{:?}>::{}{:?}",
-            &trait_params[0],
-            associated_ty_data.trait_id,
-            Angle(&trait_params[1..]),
-            associated_ty_data.name,
-            Angle(&other_params)
-        )
+        match &projection_ty.normalized {
+            Some(norm) => {
+                write!(
+                    fmt,
+                    "<{:?} as {:?}{:?}>::{}{:?} as {:?}",
+                    &trait_params[0],
+                    associated_ty_data.trait_id,
+                    Angle(&trait_params[1..]),
+                    associated_ty_data.name,
+                    Angle(&other_params),
+                    norm,
+                )
+            }
+            None => {
+                write!(
+                    fmt,
+                    "<{:?} as {:?}{:?}>::{}{:?}",
+                    &trait_params[0],
+                    associated_ty_data.trait_id,
+                    Angle(&trait_params[1..]),
+                    associated_ty_data.name,
+                    Angle(&other_params)
+                )
+            }
+        }
     }
 }
 

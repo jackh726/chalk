@@ -594,6 +594,7 @@ impl<TF: TypeFamily> Parameter<TF> {
 pub struct ProjectionTy<TF: TypeFamily> {
     pub associated_ty_id: TypeId,
     pub parameters: Vec<Parameter<TF>>,
+    pub normalized: Option<Box<Ty<TF>>>,
 }
 
 impl<TF: TypeFamily> ProjectionTy<TF> {

@@ -250,7 +250,7 @@ fn program_clauses_that_could_match<TF: TypeFamily>(
             match_ty(builder, environment, ty)
         }
         DomainGoal::FromEnv(_) => (), // Computed in the environment
-        DomainGoal::Normalize(Normalize { projection, ty: _ }) => {
+        DomainGoal::Normalize(Normalize { projection, ty }) => {
             // Normalize goals derive from `AssociatedTyValue` datums,
             // which are found in impls. That is, if we are
             // normalizing (e.g.) `<T as Iterator>::Item>`, then
@@ -270,6 +270,15 @@ fn program_clauses_that_could_match<TF: TypeFamily>(
                 trait_id,
                 trait_parameters,
             );
+
+            if let Some(norm_ty) = &projection.normalized {
+                builder.push_fact(
+                    Normalize {
+                        projection: projection.clone(),
+                        ty: *norm_ty.clone(),
+                    },
+                );
+            }
         }
         DomainGoal::LocalImplAllowed(trait_ref) => db
             .trait_datum(trait_ref.trait_id)

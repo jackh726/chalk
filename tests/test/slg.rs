@@ -1305,7 +1305,7 @@ fn projection_equality_slg() {
                 type Type;
             }
             trait Trait2<T> { }
-            impl<T, U> Trait2<T> for U where U: Trait1<Type = T> {}
+            impl<T, U> Trait2<U> for T where T: Trait1<Type = U> {}
 
             struct u32 {}
             struct S {}

@@ -24,6 +24,7 @@ pub trait Split<TF: TypeFamily>: RustIrDatabase<TF> {
         let ProjectionTy {
             associated_ty_id,
             ref parameters,
+            ref normalized,
         } = *projection;
         let associated_ty_data = &self.associated_ty_data(associated_ty_id);
         let trait_datum = &self.trait_datum(associated_ty_data.trait_id);
@@ -150,6 +151,7 @@ pub trait Split<TF: TypeFamily>: RustIrDatabase<TF> {
         let projection = ProjectionTy {
             associated_ty_id: associated_ty_value.associated_ty_id,
             parameters: projection_parameters,
+            normalized: None,
         };
 
         debug!("impl_parameters: {:?}", impl_parameters);

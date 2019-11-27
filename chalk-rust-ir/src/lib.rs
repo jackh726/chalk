@@ -232,6 +232,7 @@ impl<TF: TypeFamily> ProjectionEqBound<TF> {
                 projection: ProjectionTy {
                     associated_ty_id: self.associated_ty_id,
                     parameters: parameters,
+                    normalized: None,
                 },
                 ty: self.value.clone(),
             }),
@@ -341,6 +342,7 @@ impl<TF: TypeFamily> AssociatedTyDatum<TF> {
         let self_ty = TyData::Projection(ProjectionTy {
             associated_ty_id: self.id,
             parameters,
+            normalized: None,
         })
         .intern();
 

@@ -20,6 +20,7 @@ macro_rules! ty {
         $crate::TyData::Projection(ProjectionTy {
             associated_ty_id: TypeId(RawId { index: $n }),
             parameters: vec![$(arg!($arg)),*],
+            normalized: None,
         }).intern()
     };
 
