@@ -175,11 +175,25 @@ impl<'t, TF: TypeFamily> Unifier<'t, TF> {
             (&TyData::Opaque(ref qwc1), &TyData::Opaque(ref qwc2))
             | (&TyData::Dyn(ref qwc1), &TyData::Dyn(ref qwc2)) => Zip::zip_with(self, qwc1, qwc2),
 
+            (&TyData::InferenceVar(var), &TyData::Projection(ref proj)) => {
+                if let Some(norm) = &proj.normalized {
+                    dbg!(self.unify_var_ty(var, b));
+                    return Ok(())
+                }
+                self.unify_projection_ty(proj, a)
+            }
+            (&TyData::Projection(ref proj), &TyData::InferenceVar(var)) => {
+                if let Some(norm) = &proj.normalized {
+                    dbg!(self.unify_var_ty(var, a));
+                    return Ok(())
+                }
+                self.unify_projection_ty(proj, b)
+            }
+
             // Unifying an associated type projection `<T as
             // Trait>::Item` with some other type `U`.
             (&TyData::Apply(_), &TyData::Projection(ref proj))
             | (&TyData::ForAll(_), &TyData::Projection(ref proj))
-            | (&TyData::InferenceVar(_), &TyData::Projection(ref proj))
             | (&TyData::Dyn(_), &TyData::Projection(ref proj))
             | (&TyData::Opaque(_), &TyData::Projection(ref proj)) => {
                 self.unify_projection_ty(proj, a)
@@ -188,7 +202,6 @@ impl<'t, TF: TypeFamily> Unifier<'t, TF> {
             (&TyData::Projection(ref proj), &TyData::Projection(_))
             | (&TyData::Projection(ref proj), &TyData::Apply(_))
             | (&TyData::Projection(ref proj), &TyData::ForAll(_))
-            | (&TyData::Projection(ref proj), &TyData::InferenceVar(_))
             | (&TyData::Projection(ref proj), &TyData::Dyn(_))
             | (&TyData::Projection(ref proj), &TyData::Opaque(_)) => {
                 self.unify_projection_ty(proj, b)

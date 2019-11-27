@@ -1328,7 +1328,7 @@ fn projection_equality_slg() {
                 Answer {
                     subst: Canonical {
                         value: ConstrainedSubst {
-                            subst: [?0 := u32]
+                            subst: [?0 := <S as Trait1>::Type as u32]
                             constraints: []
                         }
                         binders: []
@@ -1347,7 +1347,7 @@ fn projection_equality_slg() {
                 Answer {
                     subst: Canonical {
                         value: ConstrainedSubst {
-                            subst: [?0 := S, ?1 := u32]
+                            subst: [?0 := S, ?1 := <S as Trait1>::Type as u32]
                             constraints: []
                         }
                         binders: []
@@ -1357,7 +1357,7 @@ fn projection_equality_slg() {
                 Answer {
                     subst: Canonical {
                         value: ConstrainedSubst {
-                            subst: [?0 := X, ?1 := i32]
+                            subst: [?0 := X, ?1 := <X as Trait1>::Type as i32]
                             constraints: []
                         }
                         binders: []

@@ -236,8 +236,11 @@ fn program_clauses_that_could_match<TF: TypeFamily>(
             // TODO sized, unsize_trait, builtin impls?
         }
         DomainGoal::Holds(WhereClause::ProjectionEq(projection_predicate)) => {
-            if let Some(norm) = &projection_predicate.projection.normalized {
-                builder.push_fact(projection_predicate.clone());
+            if let Some(_) = &projection_predicate.projection.normalized {
+                builder.push_fact(ProjectionEq {
+                    projection: projection_predicate.projection.clone(),
+                    ty: projection_predicate.projection.clone().intern(),
+                });
             }
 
             db.associated_ty_data(projection_predicate.projection.associated_ty_id)
