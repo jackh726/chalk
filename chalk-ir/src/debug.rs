@@ -84,7 +84,6 @@ impl<TF: TypeFamily> Debug for TyData<TF> {
             TyData::InferenceVar(var) => write!(fmt, "{:?}", var),
             TyData::Apply(apply) => write!(fmt, "{:?}", apply),
             TyData::Projection(proj) => write!(fmt, "{:?}", proj),
-            TyData::NormalizedProjection(proj) => write!(fmt, "{:?}", proj),
             TyData::ForAll(quantified_ty) => write!(fmt, "{:?}", quantified_ty),
         }
     }
@@ -179,13 +178,6 @@ impl<TF: TypeFamily> Debug for SeparatorTraitRef<'_, TF> {
 impl<TF: TypeFamily> Debug for ProjectionTy<TF> {
     fn fmt(&self, fmt: &mut Formatter) -> Result<(), Error> {
         TF::debug_projection(self, fmt)
-    }
-}
-
-impl<TF: TypeFamily> Debug for NormalizedProjectionTy<TF> {
-    fn fmt(&self, fmt: &mut Formatter) -> Result<(), Error> {
-        TF::debug_projection(&self.projection, fmt)?;
-        write!(fmt, " as {:?}", self.normalized)
     }
 }
 
