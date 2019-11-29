@@ -1342,7 +1342,7 @@ fn projection_equality_slg() {
             exists<T, U> {
                 T: Trait2<U>
             }
-        } first 3 with max 10 {
+        } first 4 with max 10 {
             r"[
                 Answer {
                     subst: Canonical {
@@ -1358,6 +1358,26 @@ fn projection_equality_slg() {
                     subst: Canonical {
                         value: ConstrainedSubst {
                             subst: [?0 := X, ?1 := <X as Trait1>::Type as i32]
+                            constraints: []
+                        }
+                        binders: []
+                    }
+                    ambiguous: false
+                }
+                Answer {
+                    subst: Canonical {
+                        value: ConstrainedSubst {
+                            subst: [?0 := S, ?1 := (Trait1::Type)<S>]
+                            constraints: []
+                        }
+                        binders: []
+                    }
+                    ambiguous: false
+                }
+                Answer {
+                    subst: Canonical {
+                        value: ConstrainedSubst {
+                            subst: [?0 := X, ?1 := (Trait1::Type)<X>]
                             constraints: []
                         }
                         binders: []

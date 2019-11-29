@@ -237,7 +237,7 @@ fn mixed_indices_normalize_application() {
                 }
             }
         } yields {
-            "Unique; for<?U0,?U0> { substitution [?0 := '^0, ?1 := ^1, ?2 := ^1], "
+            "Unique; for<?U0,?U0> { substitution [?0 := '^0, ?1 := ^1, ?2 := <Ref<'^0, ^1> as Foo>::T as ^1], "
         }
     }
 }

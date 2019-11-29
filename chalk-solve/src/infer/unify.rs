@@ -177,14 +177,12 @@ impl<'t, TF: TypeFamily> Unifier<'t, TF> {
 
             (&TyData::InferenceVar(var), &TyData::Projection(ref proj)) => {
                 if let Some(norm) = &proj.normalized {
-                    dbg!(self.unify_var_ty(var, b));
                     return Ok(())
                 }
                 self.unify_projection_ty(proj, a)
             }
             (&TyData::Projection(ref proj), &TyData::InferenceVar(var)) => {
                 if let Some(norm) = &proj.normalized {
-                    dbg!(self.unify_var_ty(var, a));
                     return Ok(())
                 }
                 self.unify_projection_ty(proj, b)
