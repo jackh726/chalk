@@ -99,15 +99,15 @@ impl<TF: TypeFamily> ToProgramClauses<TF> for AssociatedTyValue<TF> {
             // Create the final program clause:
             //
             // ```notrust
-            // -- Rule Normalize-From-Impl
+            // -- Rule ProjectionEq-From-Impl
             // forall<'a, T> {
-            //     Normalize(<Vec<T> as Iterable>::IntoIter<'a> -> Iter<'a, T>>) :-
+            //     ProjectionEq(<Vec<T> as Iterable>::IntoIter<'a> -> Iter<'a, T>>) :-
             //         Implemented(T: Clone),  // (1)
             //         Implemented(Iter<'a, T>: 'a).   // (2)
             // }
             // ```
             builder.push_clause(
-                Normalize {
+                ProjectionEq {
                     projection: projection.clone(),
                     ty: assoc_ty_value.ty,
                 },
@@ -653,26 +653,6 @@ impl<TF: TypeFamily> ToProgramClauses<TF> for AssociatedTyDatum<TF> {
                     }
                 });
             }
-
-            // add new type parameter U
-            builder.push_bound_ty(|builder, ty| {
-                // `Normalize(<T as Foo>::Assoc -> U)`
-                let normalize = Normalize {
-                    projection: projection.clone(),
-                    ty: ty.clone(),
-                };
-
-                // `ProjectionEq(<T as Foo>::Assoc = U)`
-                let projection_eq = ProjectionEq { projection, ty };
-
-                // Projection equality rule from above.
-                //
-                //    forall<T, U> {
-                //        ProjectionEq(<T as Foo>::Assoc = U) :-
-                //            Normalize(<T as Foo>::Assoc -> U).
-                //    }
-                builder.push_clause(projection_eq, Some(normalize));
-            });
         });
     }
 }

@@ -238,19 +238,8 @@ fn program_clauses_that_could_match<TF: TypeFamily>(
         DomainGoal::Holds(WhereClause::ProjectionEq(projection_predicate)) => {
             db.associated_ty_data(projection_predicate.projection.associated_ty_id)
                 .to_program_clauses(builder);
-        }
-        DomainGoal::WellFormed(WellFormed::Trait(trait_predicate)) => {
-            db.trait_datum(trait_predicate.trait_id)
-                .to_program_clauses(builder);
-        }
-        DomainGoal::WellFormed(WellFormed::Ty(ty))
-        | DomainGoal::IsUpstream(ty)
-        | DomainGoal::DownstreamType(ty) => match_ty(builder, environment, ty),
-        DomainGoal::IsFullyVisible(ty) | DomainGoal::IsLocal(ty) => {
-            match_ty(builder, environment, ty)
-        }
-        DomainGoal::FromEnv(_) => (), // Computed in the environment
-        DomainGoal::Normalize(Normalize { projection, ty: _ }) => {
+
+            let ProjectionEq { projection, ty: _ } = projection_predicate;
             // Normalize goals derive from `AssociatedTyValue` datums,
             // which are found in impls. That is, if we are
             // normalizing (e.g.) `<T as Iterator>::Item>`, then
@@ -271,6 +260,17 @@ fn program_clauses_that_could_match<TF: TypeFamily>(
                 trait_parameters,
             );
         }
+        DomainGoal::WellFormed(WellFormed::Trait(trait_predicate)) => {
+            db.trait_datum(trait_predicate.trait_id)
+                .to_program_clauses(builder);
+        }
+        DomainGoal::WellFormed(WellFormed::Ty(ty))
+        | DomainGoal::IsUpstream(ty)
+        | DomainGoal::DownstreamType(ty) => match_ty(builder, environment, ty),
+        DomainGoal::IsFullyVisible(ty) | DomainGoal::IsLocal(ty) => {
+            match_ty(builder, environment, ty)
+        }
+        DomainGoal::FromEnv(_) => (), // Computed in the environment
         DomainGoal::LocalImplAllowed(trait_ref) => db
             .trait_datum(trait_ref.trait_id)
             .to_program_clauses(builder),

@@ -121,12 +121,6 @@ where
     }
 }
 
-impl<TF: TypeFamily> CastTo<DomainGoal<TF>> for Normalize<TF> {
-    fn cast_to(self) -> DomainGoal<TF> {
-        DomainGoal::Normalize(self)
-    }
-}
-
 impl<TF: TypeFamily> CastTo<DomainGoal<TF>> for WellFormed<TF> {
     fn cast_to(self) -> DomainGoal<TF> {
         DomainGoal::WellFormed(self)

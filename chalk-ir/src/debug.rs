@@ -200,12 +200,6 @@ impl<'a, T: Debug> Debug for Angle<'a, T> {
     }
 }
 
-impl<TF: TypeFamily> Debug for Normalize<TF> {
-    fn fmt(&self, fmt: &mut Formatter) -> Result<(), Error> {
-        write!(fmt, "Normalize({:?} -> {:?})", self.projection, self.ty)
-    }
-}
-
 impl<TF: TypeFamily> Debug for ProjectionEq<TF> {
     fn fmt(&self, fmt: &mut Formatter) -> Result<(), Error> {
         write!(fmt, "ProjectionEq({:?} = {:?})", self.projection, self.ty)
@@ -245,7 +239,6 @@ impl<TF: TypeFamily> Debug for DomainGoal<TF> {
             DomainGoal::Holds(n) => write!(fmt, "{:?}", n),
             DomainGoal::WellFormed(n) => write!(fmt, "{:?}", n),
             DomainGoal::FromEnv(n) => write!(fmt, "{:?}", n),
-            DomainGoal::Normalize(n) => write!(fmt, "{:?}", n),
             DomainGoal::IsLocal(n) => write!(fmt, "IsLocal({:?})", n),
             DomainGoal::IsUpstream(n) => write!(fmt, "IsUpstream({:?})", n),
             DomainGoal::IsFullyVisible(n) => write!(fmt, "IsFullyVisible({:?})", n),
@@ -253,7 +246,7 @@ impl<TF: TypeFamily> Debug for DomainGoal<TF> {
                 fmt,
                 "LocalImplAllowed({:?}: {:?}{:?})",
                 tr.parameters[0],
-                tr.trait_id,
+            tr.trait_id,
                 Angle(&tr.parameters[1..])
             ),
             DomainGoal::Compatible(_) => write!(fmt, "Compatible"),

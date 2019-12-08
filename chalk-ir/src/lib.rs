@@ -698,8 +698,6 @@ pub enum DomainGoal<TF: TypeFamily> {
 
     FromEnv(FromEnv<TF>),
 
-    Normalize(Normalize<TF>),
-
     /// True if a type is considered to have been "defined" by the current crate. This is true for
     /// a `struct Foo { }` but false for a `#[upstream] struct Foo { }`. However, for fundamental types
     /// like `Box<T>`, it is true if `T` is local.
@@ -818,16 +816,6 @@ pub enum LeafGoal<TF: TypeFamily> {
 pub struct EqGoal<TF: TypeFamily> {
     pub a: Parameter<TF>,
     pub b: Parameter<TF>,
-}
-
-/// Proves that the given projection **normalizes** to the given
-/// type. A projection `T::Foo` normalizes to the type `U` if we can
-/// **match it to an impl** and that impl has a `type Foo = V` where
-/// `U = V`.
-#[derive(Clone, PartialEq, Eq, Hash, PartialOrd, Ord, Fold)]
-pub struct Normalize<TF: TypeFamily> {
-    pub projection: ProjectionTy<TF>,
-    pub ty: Ty<TF>,
 }
 
 /// Proves **equality** between a projection `T::Foo` and a type

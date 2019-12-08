@@ -195,7 +195,6 @@ struct_zip!(impl[TF: TypeFamily] Zip<TF> for ProjectionTy<TF> {
     associated_ty_id,
     parameters,
 });
-struct_zip!(impl[TF: TypeFamily] Zip<TF> for Normalize<TF> { projection, ty });
 struct_zip!(impl[TF: TypeFamily] Zip<TF> for ProjectionEq<TF> { projection, ty });
 struct_zip!(impl[TF: TypeFamily] Zip<TF> for EqGoal<TF> { a, b });
 struct_zip!(impl[TF: TypeFamily] Zip<TF> for ProgramClauseImplication<TF> {
@@ -241,7 +240,6 @@ enum_zip!(impl<TF> for DomainGoal<TF> {
     Holds,
     WellFormed,
     FromEnv,
-    Normalize,
     IsLocal,
     IsUpstream,
     IsFullyVisible,
