@@ -75,6 +75,7 @@ pub fn push_auto_trait_impls<TF: TypeFamily>(
         let self_ty: Ty<_> = ApplicationTy {
             name: struct_id.cast(),
             parameters: builder.placeholders_in_scope().to_vec(),
+            normalized_to: None,
         }
         .intern();
 

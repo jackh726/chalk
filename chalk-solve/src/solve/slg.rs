@@ -469,10 +469,12 @@ impl MayInvalidate {
         let ApplicationTy {
             name: new_name,
             parameters: new_parameters,
+            normalized_to: new_normalized_to,
         } = new;
         let ApplicationTy {
             name: current_name,
             parameters: current_parameters,
+            normalized_to: current_normalized_to,
         } = current;
 
         self.aggregate_name_and_substs(new_name, new_parameters, current_name, current_parameters)

@@ -129,7 +129,10 @@ impl Debug for PlaceholderIndex {
 
 impl<TF: TypeFamily> Debug for ApplicationTy<TF> {
     fn fmt(&self, fmt: &mut Formatter) -> Result<(), Error> {
-        write!(fmt, "{:?}{:?}", self.name, Angle(&self.parameters))
+        match &self.normalized_to {
+            None => write!(fmt, "{:?}{:?}", self.name, Angle(&self.parameters)),
+            Some(normalized_to) => write!(fmt, "{:?}{:?} as {:?}", self.name, Angle(&self.parameters), normalized_to),
+        }
     }
 }
 

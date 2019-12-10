@@ -6,6 +6,7 @@ macro_rules! ty {
         $crate::TyData::Apply(ApplicationTy {
             name: ty_name!($n),
             parameters: vec![$(arg!($arg)),*],
+            normalized_to: None,
         }).intern()
     };
 

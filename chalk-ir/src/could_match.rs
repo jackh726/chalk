@@ -13,27 +13,45 @@ where
     TF: TypeFamily,
 {
     fn could_match(&self, other: &T) -> bool {
-        return Zip::zip_with(&mut MatchZipper, self, other).is_ok();
+        dbg!(self, other);
+        return dbg!(Zip::zip_with(&mut MatchZipper, self, other).is_ok());
 
         struct MatchZipper;
 
         impl<TF: TypeFamily> Zipper<TF> for MatchZipper {
             fn zip_tys(&mut self, a: &Ty<TF>, b: &Ty<TF>) -> Fallible<()> {
+                dbg!(a, b);
                 let could_match = match (a.data(), b.data()) {
-                    (&TyData::Apply(ref a), &TyData::Apply(ref b)) => {
-                        let names_could_match = a.name == b.name;
-
-                        names_could_match
-                            && a.parameters
+                    (&TyData::Apply(ref app_a), &TyData::Apply(ref app_b)) => {
+                        if app_a.name == app_b.name &&
+                            app_a.parameters
                                 .iter()
-                                .zip(&b.parameters)
+                                .zip(&app_b.parameters)
                                 .all(|(p_a, p_b)| p_a.could_match(p_b))
+                        {
+                            true
+                        } else {
+                            match (app_a.normalized_to.as_ref(), app_b.normalized_to.as_ref()) {
+                                (Some(a), Some(b)) => {
+                                    unimplemented!();
+                                }
+                                (Some(norm), None) => {
+                                    self.zip_tys(&*norm, b)?;
+                                    true
+                                }
+                                (None, Some(norm))=> {
+                                    self.zip_tys(a, &*norm)?;
+                                    true
+                                }
+                                (None, None) => false,
+                            }
+                        }
                     }
 
                     _ => true,
                 };
 
-                if could_match {
+                if dbg!(could_match) {
                     Ok(())
                 } else {
                     Err(NoSolution)

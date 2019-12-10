@@ -139,6 +139,15 @@ impl<TF: TypeFamily, T: Zip<TF> + Fold<TF, TF, Result = T>> Zip<TF> for Binders<
     }
 }
 
+impl<T, TF: TypeFamily> Zip<TF> for Option<T> where T: Zip<TF> {
+    fn zip_with<Z: Zipper<TF>>(zipper: &mut Z, a: &Self, b: &Self) -> Fallible<()> {
+        match (a, b) {
+            (Some(a), Some(b)) => Zip::zip_with(zipper, a, b),
+            _ => Ok(())
+        }
+    }
+}
+
 /// Generates a Zip impl that requires the two values be
 /// equal. Suitable for atomic, scalar values.
 macro_rules! eq_zip {
@@ -190,7 +199,7 @@ struct_zip!(impl[
     environment,
     goal,
 });
-struct_zip!(impl[TF: TypeFamily] Zip<TF> for ApplicationTy<TF> { name, parameters });
+struct_zip!(impl[TF: TypeFamily] Zip<TF> for ApplicationTy<TF> { name, parameters, normalized_to });
 struct_zip!(impl[TF: TypeFamily] Zip<TF> for ProjectionTy<TF> {
     associated_ty_id,
     parameters,

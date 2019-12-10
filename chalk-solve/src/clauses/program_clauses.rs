@@ -96,6 +96,14 @@ impl<TF: TypeFamily> ToProgramClauses<TF> for AssociatedTyValue<TF> {
                 .into_iter()
                 .map(|wc| wc.substitute(&projection.parameters));
 
+            // Application type normalized to assoc_ty_value.ty
+            let app_ty: Ty<_> = ApplicationTy {
+                name: TypeName::AssociatedType(projection.associated_ty_id),
+                parameters: projection.parameters.clone(),
+                normalized_to: Some(Box::new(assoc_ty_value.ty.clone())),
+            }
+            .intern();
+
             // Create the final program clause:
             //
             // ```notrust
@@ -109,7 +117,7 @@ impl<TF: TypeFamily> ToProgramClauses<TF> for AssociatedTyValue<TF> {
             builder.push_clause(
                 ProjectionEq {
                     projection: projection.clone(),
-                    ty: assoc_ty_value.ty,
+                    ty: app_ty,
                 },
                 impl_where_clauses.chain(assoc_ty_where_clauses),
             );
@@ -174,6 +182,7 @@ impl<TF: TypeFamily> ToProgramClauses<TF> for StructDatum<TF> {
             let self_appl_ty = &ApplicationTy {
                 name: self.id.cast(),
                 parameters: builder.placeholders_in_scope().to_vec(),
+                normalized_to: None,
             };
             let self_ty = self_appl_ty.clone().intern();
 
@@ -584,6 +593,8 @@ impl<TF: TypeFamily> ToProgramClauses<TF> for AssociatedTyDatum<TF> {
             let app_ty: Ty<_> = ApplicationTy {
                 name: TypeName::AssociatedType(self.id),
                 parameters,
+                // FIXME: should be an inference var?
+                normalized_to: None,
             }
             .intern();
 

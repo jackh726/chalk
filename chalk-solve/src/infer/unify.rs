@@ -149,12 +149,25 @@ impl<'t, TF: TypeFamily> Unifier<'t, TF> {
             }
 
             (&TyData::Apply(ref apply1), &TyData::Apply(ref apply2)) => {
-                // Cannot unify (e.g.) some struct type `Foo` and some struct type `Bar`
-                if apply1.name != apply2.name {
-                    return Err(NoSolution);
+                if apply1.name == apply2.name {
+                    Zip::zip_with(self, &apply1.parameters, &apply2.parameters)    
+                } else {
+                    match (apply1.normalized_to.as_ref(), apply2.normalized_to.as_ref()) {
+                        (Some(a), Some(b)) => {
+                            unimplemented!();
+                        }
+                        (Some(a), None) => {
+                            unimplemented!();
+                        }
+                        (None, Some(b)) => {
+                            dbg!(a, b);
+                            self.unify_ty_ty(a, b)
+                        }
+                        (None, None) => {
+                            Err(NoSolution)
+                        }
+                    }
                 }
-
-                Zip::zip_with(self, &apply1.parameters, &apply2.parameters)
             }
 
             // Cannot unify (e.g.) some struct type `Foo` and an `impl Trait` type

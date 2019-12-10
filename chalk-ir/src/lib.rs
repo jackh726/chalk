@@ -451,6 +451,7 @@ impl PlaceholderIndex {
         TyData::Apply(ApplicationTy::<TF> {
             name: TypeName::Placeholder(self),
             parameters: vec![],
+            normalized_to: None,
         })
         .intern()
     }
@@ -461,6 +462,7 @@ impl PlaceholderIndex {
 pub struct ApplicationTy<TF: TypeFamily> {
     pub name: TypeName,
     pub parameters: Vec<Parameter<TF>>,
+    pub normalized_to: Option<Box<Ty<TF>>>,
 }
 
 impl<TF: TypeFamily> ApplicationTy<TF> {

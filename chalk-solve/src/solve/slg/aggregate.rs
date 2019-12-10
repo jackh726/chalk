@@ -31,6 +31,10 @@ impl<TF: TypeFamily> context::AggregateOps<SlgContext<TF>> for SlgContextOps<'_,
             return Some(Solution::Unique(subst));
         }
 
+    
+        // FIXME: we can also get multiple types that normalize to
+        // the same type (e.g. `(Trait1::Type)<S>` and `(Trait1::Type)<S> as u32`)
+
         // Otherwise, we either have >1 answer, or else we have
         // ambiguity.  Either way, we are only going to be giving back
         // **guidance**, and with guidance, the caller doesn't get
@@ -58,6 +62,7 @@ impl<TF: TypeFamily> context::AggregateOps<SlgContext<TF>> for SlgContextOps<'_,
 
             match answers.next_answer() {
                 Some(answer1) => {
+                    dbg!("merging into guidance", &answer1.subst, &subst);
                     subst = merge_into_guidance(root_goal, subst, &answer1.subst);
                 }
 
@@ -100,10 +105,12 @@ fn merge_into_guidance<TF: TypeFamily>(
         .zip(&subst1.parameters)
         .enumerate()
         .map(|(index, (value, value1))| {
+            dbg!(index, &value, &value1);
             // We have two values for some variable X that
             // appears in the root goal. Find out the universe
             // of X.
             let universe = root_goal.binders[index].into_inner();
+            dbg!(universe);
 
             let ty = match &value.0 {
                 ParameterKind::Ty(ty) => ty,
@@ -121,6 +128,7 @@ fn merge_into_guidance<TF: TypeFamily>(
                 infer: &mut infer,
                 universe,
             };
+            dbg!(&ty, &ty1);
             aggr.aggregate_tys(&ty, ty1).cast()
         })
         .collect();
@@ -167,7 +175,7 @@ struct AntiUnifier<'infer, TF: TypeFamily> {
 
 impl<TF: TypeFamily> AntiUnifier<'_, TF> {
     fn aggregate_tys(&mut self, ty0: &Ty<TF>, ty1: &Ty<TF>) -> Ty<TF> {
-        match (ty0.data(), ty1.data()) {
+        match dbg!((ty0.data(), ty1.data())) {
             // If we see bound things on either side, just drop in a
             // fresh variable. This means we will sometimes
             // overgeneralize.  So for example if we have two
@@ -211,14 +219,30 @@ impl<TF: TypeFamily> AntiUnifier<'_, TF> {
         let ApplicationTy {
             name: name1,
             parameters: parameters1,
+            normalized_to: normalized_to1,
         } = apply1;
         let ApplicationTy {
             name: name2,
             parameters: parameters2,
+            normalized_to: normalized_to2,
         } = apply2;
 
+        let normalized_to = match (normalized_to1, normalized_to2) {
+            (Some(a), Some(b)) => {
+                unimplemented!();
+            }
+            (Some(norm), None) | (None, Some(norm)) => {
+                Some(norm.clone())
+            },
+            (None, None) => None,
+        };
+
+        dbg!(&normalized_to);
+
+        // FIXME: if we've already normalized, then we want to keep that
+        // Also, we should be smarter about aggregating things that are the same i.e. AssociatedType application types
         self.aggregate_name_and_substs(name1, parameters1, name2, parameters2)
-            .map(|(&name, parameters)| TyData::Apply(ApplicationTy { name, parameters }).intern())
+            .map(|(&name, parameters)| TyData::Apply(ApplicationTy { name, parameters, normalized_to: None }).intern())
             .unwrap_or_else(|| self.new_variable())
     }
 
@@ -258,7 +282,7 @@ impl<TF: TypeFamily> AntiUnifier<'_, TF> {
         N: Copy + Eq + Debug,
     {
         if name1 != name2 {
-            return None;
+            return dbg!(None);
         }
 
         let name = name1;
@@ -278,12 +302,12 @@ impl<TF: TypeFamily> AntiUnifier<'_, TF> {
             .map(|(p1, p2)| self.aggregate_parameters(p1, p2))
             .collect();
 
-        Some((name, parameters))
+        Some(dbg!((name, parameters)))
     }
 
     fn aggregate_parameters(&mut self, p1: &Parameter<TF>, p2: &Parameter<TF>) -> Parameter<TF> {
         match (&p1.0, &p2.0) {
-            (ParameterKind::Ty(ty1), ParameterKind::Ty(ty2)) => self.aggregate_tys(ty1, ty2).cast(),
+            (ParameterKind::Ty(ty1), ParameterKind::Ty(ty2)) => dbg!(self.aggregate_tys(ty1, ty2)).cast(),
             (ParameterKind::Lifetime(l1), ParameterKind::Lifetime(l2)) => {
                 self.aggregate_lifetimes(l1, l2).cast()
             }

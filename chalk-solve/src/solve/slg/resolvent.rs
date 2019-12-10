@@ -94,6 +94,8 @@ impl<TF: TypeFamily> context::ResolventOps<SlgContext<TF>> for TruncatingInferen
         // Unify the selected literal Li with C'.
         let unification_result = self.infer.unify(environment, goal, &consequence)?;
 
+        dbg!(&unification_result);
+
         // Final X-clause that we will return.
         let mut ex_clause = ExClause {
             subst: subst.clone(),

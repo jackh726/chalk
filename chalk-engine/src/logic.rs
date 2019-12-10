@@ -1175,6 +1175,8 @@ impl<C: Context> Forest<C> {
                                 };
                                 let canonical_strand = Self::canonicalize_strand(strand);
                                 table_ref.enqueue_strand(canonical_strand);
+                            } else {
+                                debug!("failed to unify resolvent clause");
                             }
                         }
                     }

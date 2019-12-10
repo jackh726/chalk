@@ -926,6 +926,7 @@ impl LowerTy for Ty {
                         Ok(chalk_ir::TyData::Apply(chalk_ir::ApplicationTy {
                             name: chalk_ir::TypeName::TypeKindId(id.into()),
                             parameters: vec![],
+                            normalized_to: None,
                         })
                         .intern())
                     }
@@ -996,6 +997,7 @@ impl LowerTy for Ty {
                 Ok(chalk_ir::TyData::Apply(chalk_ir::ApplicationTy {
                     name: chalk_ir::TypeName::TypeKindId(id.into()),
                     parameters: parameters,
+                    normalized_to: None,
                 })
                 .intern())
             }

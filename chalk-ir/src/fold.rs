@@ -449,7 +449,7 @@ impl<TF: TypeFamily, TTF: TypeFamily> Fold<TF, TTF> for ApplicationTy<TF> {
         folder: &mut dyn Folder<TF, TTF>,
         binders: usize,
     ) -> Fallible<Self::Result> {
-        let ApplicationTy { name, parameters } = self;
+        let ApplicationTy { name, parameters, normalized_to } = self;
         let name = *name;
         match name {
             TypeName::Placeholder(ui) => {
@@ -464,7 +464,8 @@ impl<TF: TypeFamily, TTF: TypeFamily> Fold<TF, TTF> for ApplicationTy<TF> {
 
             TypeName::TypeKindId(_) | TypeName::AssociatedType(_) | TypeName::Error => {
                 let parameters = parameters.fold_with(folder, binders)?;
-                Ok(ApplicationTy { name, parameters }.cast().intern())
+                let normalized_to = normalized_to.fold_with(folder, binders)?;
+                Ok(ApplicationTy { name, parameters, normalized_to }.cast().intern())
             }
         }
     }
