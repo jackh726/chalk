@@ -609,7 +609,40 @@ impl<TF: TypeFamily> ToProgramClauses<TF> for AssociatedTyDatum<TF> {
             //    forall<Self> {
             //        ProjectionEq(<Self as Foo>::Assoc = (Foo::Assoc)<Self>).
             //    }
-            builder.push_fact(projection_eq);
+            {
+                let trait_id = self.trait_id;
+                let trait_parameters = builder.db.trait_parameters_from_projection(&projection);
+
+                debug_heading!(
+                    "push_program_clauses_for_associated_type_values_in_impls_of2(\
+                    trait_id={:?}, \
+                    trait_parameters={:?})",
+                    trait_id,
+                    trait_parameters,
+                );
+
+                let mut any_impl = false;
+                for impl_id in builder.db.impls_for_trait(trait_id, trait_parameters) {
+                    let impl_datum = builder.db.impl_datum(impl_id);
+                    if !impl_datum.is_positive() {
+                        continue;
+                    }
+                    any_impl = true;
+
+                    debug!("impl_id = {:?}", impl_id);
+
+                    for &atv_id in &impl_datum.associated_ty_value_ids {
+                        let atv = builder.db.associated_ty_value(atv_id);
+                        debug!("atv_id = {:?} atv = {:#?}", atv_id, atv);
+                        atv.to_program_clauses(builder);
+                    }
+                }
+
+                if !any_impl {
+                    builder.push_fact(projection_eq);
+                }
+            }
+
 
             // Well-formedness of projection type.
             //

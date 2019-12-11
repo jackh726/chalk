@@ -172,10 +172,13 @@ where
         let goal = Goal::Implies(hypotheses, Box::new(goal))
             .quantify(QuantifierKind::ForAll, struct_datum.binders.binders.clone());
 
+        let closed_goal = goal.into_closed_goal();
+        debug!("WF struct goal {:#?}", &closed_goal);
+
         let is_legal = match self
             .solver_choice
             .into_solver()
-            .solve(self.db, &goal.into_closed_goal())
+            .solve(self.db, &closed_goal)
         {
             Some(sol) => sol.is_unique(),
             None => false,

@@ -13,14 +13,12 @@ where
     TF: TypeFamily,
 {
     fn could_match(&self, other: &T) -> bool {
-        dbg!(self, other);
-        return dbg!(Zip::zip_with(&mut MatchZipper, self, other).is_ok());
+        return Zip::zip_with(&mut MatchZipper, self, other).is_ok();
 
         struct MatchZipper;
 
         impl<TF: TypeFamily> Zipper<TF> for MatchZipper {
             fn zip_tys(&mut self, a: &Ty<TF>, b: &Ty<TF>) -> Fallible<()> {
-                dbg!(a, b);
                 let could_match = match (a.data(), b.data()) {
                     (&TyData::Apply(ref app_a), &TyData::Apply(ref app_b)) => {
                         if app_a.name == app_b.name &&
@@ -51,7 +49,7 @@ where
                     _ => true,
                 };
 
-                if dbg!(could_match) {
+                if could_match {
                     Ok(())
                 } else {
                     Err(NoSolution)
