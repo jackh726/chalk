@@ -96,6 +96,12 @@ impl<TF: TypeFamily> context::Context for SlgContext<TF> {
         InEnvironment::new(environment, goal)
     }
 
+    fn goal_in_empty_environment(
+        goal: Goal<TF>,
+    ) -> InEnvironment<Goal<TF>> {
+        InEnvironment::new(&Environment::new(), goal)
+    }
+
     fn inference_normalized_subst_from_ex_clause(
         canon_ex_clause: &Canonical<ExClause<SlgContext<TF>>>,
     ) -> &Substitution<TF> {
@@ -127,6 +133,10 @@ impl<TF: TypeFamily> context::Context for SlgContext<TF> {
 
     fn has_delayed_subgoals(canonical_subst: &Canonical<AnswerSubst<TF>>) -> bool {
         !canonical_subst.value.delayed_subgoals.is_empty()
+    }
+
+    fn delayed_subgoals(canonical_subst: &Canonical<AnswerSubst<TF>>) -> &Vec<InEnvironment<Goal<TF>>> {
+        &canonical_subst.value.delayed_subgoals
     }
 
     fn num_universes(u_canon: &UCanonical<InEnvironment<Goal<TF>>>) -> usize {
@@ -173,6 +183,17 @@ impl<TF: TypeFamily> context::Context for SlgContext<TF> {
                 constraints: vec![],
             })
             .quantified
+    }
+
+    fn cannot_prove() -> Goal<TF> {
+        GoalData::CannotProve(()).intern()
+    }
+
+    fn is_cannot_prove(goal: &Goal<TF>) -> bool {
+        match goal.data() {
+            GoalData::CannotProve(_) => true,
+            _ => false,
+        }
     }
 }
 
@@ -299,8 +320,8 @@ impl<TF: TypeFamily> context::TruncateOps<SlgContext<TF>> for TruncatingInferenc
         // We only want to truncate the goal itself. We keep the environment intact.
         // See rust-lang/chalk#280
         let InEnvironment { environment, goal } = subgoal;
-        let Truncated { overflow, value } =
-            truncate::truncate(&mut self.infer, self.max_size, goal);
+        let Truncated { overflow, value, new_goals: _ } =
+            truncate::truncate::<_, _, SlgContext<TF>>(&mut self.infer, self.max_size, goal);
         if overflow {
             Some(InEnvironment {
                 environment: environment.clone(),
@@ -311,11 +332,12 @@ impl<TF: TypeFamily> context::TruncateOps<SlgContext<TF>> for TruncatingInferenc
         }
     }
 
-    fn truncate_answer(&mut self, subst: &Substitution<TF>) -> Option<Substitution<TF>> {
-        let Truncated { overflow, value } =
-            truncate::truncate(&mut self.infer, self.max_size, subst);
+    fn truncate_answer(&mut self, subst: &Substitution<TF>) -> Option<(Substitution<TF>, Vec<Goal<TF>>)> {
+        dbg!(subst);
+        let Truncated { overflow, value, new_goals } =
+            truncate::truncate::<_, _, SlgContext<TF>>(&mut self.infer, self.max_size, subst);
         if overflow {
-            Some(value)
+            Some((value, new_goals))
         } else {
             None
         }

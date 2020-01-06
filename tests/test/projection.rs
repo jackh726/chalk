@@ -660,6 +660,18 @@ fn gat_unify_with_implied_wc() {
 
         goal {
             forall<T, U, V> {
+                if (
+                    FromEnv(<Slice<T> as CastingIter<T>>::Item<U>)
+                ) {
+                    T: Cast<U>
+                }
+            }
+        } yields[SolverChoice::slg(3, None)] {
+            "Ambiguous; no inference guidance"
+        }
+
+        goal {
+            forall<T, U, V> {
                 T: Cast<U>
             }
         } yields {

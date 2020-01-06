@@ -97,7 +97,6 @@ impl<TF: TypeFamily> context::ResolventOps<SlgContext<TF>> for TruncatingInferen
         // Final X-clause that we will return.
         let mut ex_clause = ExClause {
             subst: subst.clone(),
-            ambiguous: false,
             constraints: vec![],
             subgoals: vec![],
             delayed_subgoals: vec![],

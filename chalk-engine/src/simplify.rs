@@ -16,7 +16,6 @@ impl<C: Context> Forest<C> {
     ) -> Fallible<ExClause<C>> {
         let mut ex_clause = ExClause {
             subst,
-            ambiguous: false,
             constraints: vec![],
             subgoals: vec![],
             delayed_subgoals: vec![],
@@ -70,7 +69,12 @@ impl<C: Context> Forest<C> {
                         )));
                 }
                 HhGoal::CannotProve => {
-                    ex_clause.ambiguous = true;
+                    ex_clause
+                        .delayed_subgoals
+                        .push(C::goal_in_environment(
+                            &environment,
+                            C::cannot_prove(),
+                        ));
                 }
             }
         }

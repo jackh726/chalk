@@ -2,6 +2,7 @@
 
 use crate::infer::InferenceTable;
 use chalk_engine::fallible::*;
+use chalk_engine::context::Context;
 use chalk_ir::family::TypeFamily;
 use chalk_ir::fold::shift::Shift;
 use chalk_ir::fold::{
@@ -10,11 +11,11 @@ use chalk_ir::fold::{
 use chalk_ir::*;
 use std::fmt::Debug;
 
-pub(crate) fn truncate<T, TF>(
+pub(crate) fn truncate<T, TF, C: Context>(
     infer: &mut InferenceTable<TF>,
     max_size: usize,
     value: &T,
-) -> Truncated<T::Result>
+) -> Truncated<T::Result, C::Goal>
 where
     TF: TypeFamily,
     T: Fold<TF>,
@@ -22,7 +23,7 @@ where
 {
     debug_heading!("truncate(max_size={}, value={:?})", max_size, value);
 
-    let mut truncater = Truncater::new(infer, max_size);
+    let mut truncater = Truncater::<'_, TF, C>::new(infer, max_size);
     let value = value
         .fold_with(&mut truncater, 0)
         .expect("Truncater is infallible");
@@ -33,11 +34,12 @@ where
     Truncated {
         overflow: truncater.overflow,
         value,
+        new_goals: truncater.goals,
     }
 }
 
 /// Result from `truncate`.
-pub(crate) struct Truncated<T> {
+pub(crate) struct Truncated<T, G> {
     /// If true, then `value` was truncated relative to the original
     /// (e.g., fresh inference variables were introduced). If false,
     /// then it is effectively a clone of the original.
@@ -45,34 +47,41 @@ pub(crate) struct Truncated<T> {
 
     /// Possibly truncate value.
     pub(crate) value: T,
+
+    pub(crate) new_goals: Vec<G>,
 }
 
-struct Truncater<'infer, TF: TypeFamily> {
+struct Truncater<'infer, TF: TypeFamily, C: Context> {
     infer: &'infer mut InferenceTable<TF>,
     current_size: usize,
     max_size: usize,
     overflow: bool,
+    goals: Vec<C::Goal>
 }
 
-impl<'infer, TF: TypeFamily> Truncater<'infer, TF> {
+impl<'infer, TF: TypeFamily, C: Context> Truncater<'infer, TF, C> {
     fn new(infer: &'infer mut InferenceTable<TF>, max_size: usize) -> Self {
         Truncater {
             infer,
             current_size: 0,
             max_size,
             overflow: false,
+            goals: vec![],
         }
     }
 
-    fn overflow(&mut self, pre_size: usize) -> Ty<TF> {
+    fn overflow(&mut self, pre_size: usize, _old_ty: &Ty<TF>) -> Ty<TF> {
         self.overflow = true;
         self.current_size = pre_size + 1;
         let universe = self.infer.max_universe();
-        self.infer.new_variable(universe).to_ty()
+        let new_ty = self.infer.new_variable(universe).to_ty();
+        // FIXME: we could be smart here and provide the exact goals
+        self.goals.push(C::cannot_prove());
+        new_ty
     }
 }
 
-impl<TF: TypeFamily> TypeFolder<TF> for Truncater<'_, TF> {
+impl<TF: TypeFamily, C: Context> TypeFolder<TF> for Truncater<'_, TF, C> {
     fn fold_ty(&mut self, ty: &Ty<TF>, binders: usize) -> Fallible<Ty<TF>> {
         if let Some(normalized_ty) = self.infer.normalize_shallow(ty) {
             return self.fold_ty(&normalized_ty, binders);
@@ -94,7 +103,7 @@ impl<TF: TypeFamily> TypeFolder<TF> for Truncater<'_, TF> {
         // a fresh existential variable (in the innermost universe).
         let post_size = self.current_size;
         let result = if pre_size < self.max_size && post_size > self.max_size {
-            self.overflow(pre_size).shifted_in(binders)
+            self.overflow(pre_size, &result).shifted_in(binders)
         } else {
             result
         };
@@ -113,11 +122,11 @@ impl<TF: TypeFamily> TypeFolder<TF> for Truncater<'_, TF> {
     }
 }
 
-impl<TF: TypeFamily> DefaultFreeVarFolder for Truncater<'_, TF> {}
+impl<TF: TypeFamily, C: Context> DefaultFreeVarFolder for Truncater<'_, TF, C> {}
 
-impl<TF: TypeFamily> DefaultInferenceFolder for Truncater<'_, TF> {}
+impl<TF: TypeFamily, C: Context> DefaultInferenceFolder for Truncater<'_, TF, C> {}
 
-impl<TF: TypeFamily> DefaultPlaceholderFolder for Truncater<'_, TF> {}
+impl<TF: TypeFamily, C: Context> DefaultPlaceholderFolder for Truncater<'_, TF, C> {}
 
 #[test]
 fn truncate_types() {
@@ -136,7 +145,8 @@ fn truncate_types() {
     let Truncated {
         overflow,
         value: ty_no_overflow,
-    } = truncate(&mut table, 5, &ty0);
+        new_goals: _,
+    } = truncate::<_, _, crate::solve::slg::SlgContext<chalk_ir::family::ChalkIr>>(&mut table, 5, &ty0);
     assert!(!overflow);
     assert_eq!(ty0, ty_no_overflow);
 
@@ -147,7 +157,8 @@ fn truncate_types() {
     let Truncated {
         overflow,
         value: ty_overflow,
-    } = truncate(&mut table, 3, &ty0);
+        new_goals: _,
+    } = truncate::<_, _, crate::solve::slg::SlgContext<chalk_ir::family::ChalkIr>>(&mut table, 3, &ty0);
     assert!(overflow);
     assert_eq!(ty_expect, ty_overflow);
 
@@ -178,7 +189,8 @@ fn truncate_multiple_types() {
     let Truncated {
         overflow,
         value: ty_no_overflow,
-    } = truncate(&mut table, 5, &ty0_3);
+        new_goals: _,
+    } = truncate::<_, _, crate::solve::slg::SlgContext<chalk_ir::family::ChalkIr>>(&mut table, 5, &ty0_3);
     assert!(!overflow);
     assert_eq!(ty0_3, ty_no_overflow);
 
@@ -187,7 +199,8 @@ fn truncate_multiple_types() {
     let Truncated {
         overflow,
         value: ty_no_overflow,
-    } = truncate(&mut table, 6, &ty0_3);
+        new_goals: _,
+    } = truncate::<_, _, crate::solve::slg::SlgContext<chalk_ir::family::ChalkIr>>(&mut table, 6, &ty0_3);
     assert!(!overflow);
     assert_eq!(ty0_3, ty_no_overflow);
 
@@ -196,7 +209,8 @@ fn truncate_multiple_types() {
     let Truncated {
         overflow,
         value: ty_overflow,
-    } = truncate(&mut table, 3, &ty0_3);
+        new_goals: _,
+    } = truncate::<_, _, crate::solve::slg::SlgContext<chalk_ir::family::ChalkIr>>(&mut table, 3, &ty0_3);
     assert!(overflow);
     assert_eq!(
         vec![
@@ -227,7 +241,7 @@ fn truncate_normalizes() {
                    (placeholder 1)));
 
     // test: truncating *before* unifying has no effect
-    assert!(!truncate(&mut table, 3, &ty0).overflow);
+    assert!(!truncate::<_, _, crate::solve::slg::SlgContext<chalk_ir::family::ChalkIr>>(&mut table, 3, &ty0).overflow);
 
     // unify X and ty1
     table.unify(environment0, &v0.to_ty(), &ty1).unwrap();
@@ -236,7 +250,8 @@ fn truncate_normalizes() {
     let Truncated {
         overflow,
         value: ty_overflow,
-    } = truncate(&mut table, 3, &ty0);
+        new_goals: _,
+    } = truncate::<_, _, crate::solve::slg::SlgContext<chalk_ir::family::ChalkIr>>(&mut table, 3, &ty0);
     assert!(overflow);
     assert_eq!(
         ty!(apply (item 0)
@@ -261,5 +276,5 @@ fn truncate_normalizes_under_binders() {
                    (apply (item 0)
                     (infer 0))));
 
-    assert!(!truncate(&mut table, 4, &ty0).overflow);
+    assert!(!truncate::<_, _, crate::solve::slg::SlgContext<chalk_ir::family::ChalkIr>>(&mut table, 4, &ty0).overflow);
 }

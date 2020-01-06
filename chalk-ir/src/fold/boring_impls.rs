@@ -208,7 +208,6 @@ where
     ) -> Fallible<Self::Result> {
         let ExClause {
             subst,
-            ambiguous,
             constraints,
             subgoals,
             delayed_subgoals,
@@ -217,7 +216,6 @@ where
         } = self;
         Ok(ExClause {
             subst: subst.fold_with(folder, binders)?,
-            ambiguous: *ambiguous,
             constraints: constraints.fold_with(folder, binders)?,
             subgoals: subgoals.fold_with(folder, binders)?,
             delayed_subgoals: delayed_subgoals.fold_with(folder, binders)?,

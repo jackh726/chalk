@@ -128,6 +128,10 @@ pub trait Context: Clone + Debug {
         goal: Self::Goal,
     ) -> Self::GoalInEnvironment;
 
+    fn goal_in_empty_environment(
+        goal: Self::Goal,
+    ) -> Self::GoalInEnvironment;
+
     /// Extracts the inner normalized substitution from a canonical ex-clause.
     fn inference_normalized_subst_from_ex_clause(
         canon_ex_clause: &Self::CanonicalExClause,
@@ -149,6 +153,8 @@ pub trait Context: Clone + Debug {
     ) -> bool;
 
     fn has_delayed_subgoals(canonical_subst: &Self::CanonicalAnswerSubst) -> bool;
+
+    fn delayed_subgoals(canonical_subst: &Self::CanonicalAnswerSubst) -> &Vec<Self::GoalInEnvironment>;
 
     fn num_universes(_: &Self::UCanonicalGoalInEnvironment) -> usize;
 
@@ -179,6 +185,12 @@ pub trait Context: Clone + Debug {
     fn identity_constrained_subst(
         goal: &Self::UCanonicalGoalInEnvironment,
     ) -> Self::CanonicalConstrainedSubst;
+
+    /// Create a "cannot prove" goal.
+    fn cannot_prove() -> Self::Goal;
+
+    /// Is "cannot prove" goal.
+    fn is_cannot_prove(goal: &Self::Goal) -> bool;
 }
 
 pub trait ContextOps<C: Context>: Sized + Clone + Debug + AggregateOps<C> {
@@ -353,7 +365,7 @@ pub trait TruncateOps<C: Context> {
 
     /// If `subst` is too large, return a truncated variant (else
     /// return `None`).
-    fn truncate_answer(&mut self, subst: &C::Substitution) -> Option<C::Substitution>;
+    fn truncate_answer(&mut self, subst: &C::Substitution) -> Option<(C::Substitution, Vec<C::Goal>)>;
 }
 
 pub trait ResolventOps<C: Context> {

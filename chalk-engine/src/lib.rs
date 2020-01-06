@@ -100,12 +100,6 @@ pub struct ExClause<C: Context> {
     /// would yield A.
     pub subst: C::Substitution,
 
-    /// True if any subgoals were depended upon negatively and
-    /// were not fully evaluated, or if we encountered a `CannotProve`
-    /// goal. (In the full SLG algorithm, we would use delayed literals here,
-    /// but we don't bother, as we don't need that support.)
-    pub ambiguous: bool,
-
     /// Region constraints we have accumulated.
     pub constraints: Vec<C::RegionConstraint>,
 

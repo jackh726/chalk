@@ -83,13 +83,26 @@ impl<C: Context> Forest<C> {
                 let answer = self.answer(table, answer_index);
                 let has_delayed_subgoals = C::has_delayed_subgoals(&answer.subst);
                 if has_delayed_subgoals {
+                    // If all the delayed subgoals are `CannotProve`,
+                    // this means that the answer is ambiguous.
+                    if C::delayed_subgoals(&answer.subst).iter().all(|g| C::is_cannot_prove(C::goal_from_goal_in_environment(g))) {
+                        return Ok(CompleteAnswer {
+                            subst: C::canonical_constrained_subst_from_canonical_constrained_answer(
+                                &answer.subst,
+                            ),
+                            ambiguous: true,
+                        });
+                    }
                     return Err(RootSearchFail::InvalidAnswer);
+                }
+                if answer.ambiguous {
+                    unreachable!();
                 }
                 Ok(CompleteAnswer {
                     subst: C::canonical_constrained_subst_from_canonical_constrained_answer(
                         &answer.subst,
                     ),
-                    ambiguous: answer.ambiguous,
+                    ambiguous: false,
                 })
             }
             Err(err) => Err(err),
@@ -288,14 +301,6 @@ impl<C: Context> Forest<C> {
                             last_pursued_time: _,
                         } = strand;
 
-                        // If the answer had was ambiguous, we have to
-                        // ensure that `ex_clause` is also ambiguous. This is
-                        // the SLG FACTOR operation, though NFTD just makes it
-                        // part of computing the SLG resolvent.
-                        if self.answer(subgoal_table, answer_index).ambiguous {
-                            ex_clause.ambiguous = true;
-                        }
-
                         // Increment the answer time for the `ex_clause`. Floundered
                         // subgoals may be eligble to be pursued again.
                         ex_clause.answer_time.increment();
@@ -342,30 +347,21 @@ impl<C: Context> Forest<C> {
                     panic!("Negative subgoal had delayed_subgoals");
                 }
 
-                if !answer.ambiguous {
-                    // We want to disproval the subgoal, but we
-                    // have an unconditional answer for the subgoal,
-                    // therefore we have failed to disprove it.
-                    info!("found unconditional answer to neg literal -> NoSolution");
-
-                    // This strand as no solution. By returning an Err,
-                    // the caller should discard this `Strand`.
-
-                    // Now we want to propogate back to the up with `QuantumExceeded`
-                    self.unwind_stack();
-                    return Err(RootSearchFail::QuantumExceeded);
+                if answer.ambiguous {
+                    unreachable!();
                 }
 
-                // Otherwise, the answer is ambiguous. We can keep going,
-                // but we have to mark our strand, too, as ambiguous.
-                //
                 // We want to disproval the subgoal, but we
                 // have an unconditional answer for the subgoal,
                 // therefore we have failed to disprove it.
-                strand.ex_clause.ambiguous = true;
+                info!("found unconditional answer to neg literal -> NoSolution");
 
-                // Strand is ambigious.
-                return Ok(());
+                // This strand as no solution. By returning an Err,
+                // the caller should discard this `Strand`.
+
+                // Now we want to propogate back to the up with `QuantumExceeded`
+                self.unwind_stack();
+                return Err(RootSearchFail::QuantumExceeded);
             }
         };
     }
@@ -691,11 +687,13 @@ impl<C: Context> Forest<C> {
             .map(Literal::Positive)
             .collect();
 
+        if answer.ambiguous {
+            unreachable!();
+        }
         let strand = Strand {
             infer: table,
             ex_clause: ExClause {
                 subst,
-                ambiguous: answer.ambiguous,
                 constraints,
                 subgoals: filtered_delayed_subgoals,
                 delayed_subgoals: Vec::new(),
@@ -1026,7 +1024,6 @@ impl<C: Context> Forest<C> {
                 ExClause {
                     subst,
                     constraints,
-                    ambiguous,
                     subgoals,
                     delayed_subgoals,
                     answer_time: _,
@@ -1041,7 +1038,7 @@ impl<C: Context> Forest<C> {
         let subst = infer.canonicalize_answer_subst(subst, constraints, delayed_subgoals);
         debug!("answer: table={:?}, subst={:?}", table, subst);
 
-        let answer = Answer { subst, ambiguous };
+        let answer = Answer { subst, ambiguous: false };
 
         // A "trivial" answer is one that is 'just true for all cases'
         // -- in other words, it gives no information back to the
@@ -1486,15 +1483,14 @@ impl<C: Context> Forest<C> {
             None => {}
 
             // Resolvent got too large. Have to introduce approximation.
-            Some(truncated_subst) => {
+            Some((truncated_subst, delayed_goals)) => {
                 mem::replace(
                     ex_clause,
                     ExClause {
                         subst: truncated_subst,
-                        ambiguous: true,
                         constraints: vec![],
                         subgoals: vec![],
-                        delayed_subgoals: vec![],
+                        delayed_subgoals: delayed_goals.into_iter().map(|g| C::goal_in_empty_environment(g)).collect(),
                         answer_time: TimeStamp::default(),
                         floundered_subgoals: vec![],
                     },
