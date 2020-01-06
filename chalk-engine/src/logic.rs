@@ -95,9 +95,6 @@ impl<C: Context> Forest<C> {
                     }
                     return Err(RootSearchFail::InvalidAnswer);
                 }
-                if answer.ambiguous {
-                    unreachable!();
-                }
                 Ok(CompleteAnswer {
                     subst: C::canonical_constrained_subst_from_canonical_constrained_answer(
                         &answer.subst,
@@ -345,10 +342,6 @@ impl<C: Context> Forest<C> {
                 // but it keeps things simple.
                 if C::has_delayed_subgoals(&answer.subst) {
                     panic!("Negative subgoal had delayed_subgoals");
-                }
-
-                if answer.ambiguous {
-                    unreachable!();
                 }
 
                 // We want to disproval the subgoal, but we
@@ -687,9 +680,6 @@ impl<C: Context> Forest<C> {
             .map(Literal::Positive)
             .collect();
 
-        if answer.ambiguous {
-            unreachable!();
-        }
         let strand = Strand {
             infer: table,
             ex_clause: ExClause {
@@ -1038,7 +1028,7 @@ impl<C: Context> Forest<C> {
         let subst = infer.canonicalize_answer_subst(subst, constraints, delayed_subgoals);
         debug!("answer: table={:?}, subst={:?}", table, subst);
 
-        let answer = Answer { subst, ambiguous: false };
+        let answer = Answer { subst };
 
         // A "trivial" answer is one that is 'just true for all cases'
         // -- in other words, it gives no information back to the
@@ -1099,8 +1089,7 @@ impl<C: Context> Forest<C> {
         // is a *bit* suspect; e.g., those things in the environment
         // must be backed by an impl *eventually*).
         let is_trivial_answer = {
-            !answer.ambiguous
-                && C::is_trivial_substitution(&self.tables[table].table_goal, &answer.subst)
+            C::is_trivial_substitution(&self.tables[table].table_goal, &answer.subst)
                 && C::empty_constraints(&answer.subst)
         };
 

@@ -33,7 +33,7 @@ pub(crate) struct Table<C: Context> {
     /// delayed subgoals from the hash, but that's a bit tricky to do
     /// with the current canonicalization setup. It should be ok not
     /// to do so though it can result in more answers than we need.
-    answers_hash: FxHashMap<C::CanonicalAnswerSubst, bool>,
+    answers_hash: FxHashMap<C::CanonicalAnswerSubst, ()>,
 
     /// Stores the active strands that we can "pull on" to find more
     /// answers.
@@ -124,15 +124,11 @@ impl<C: Context> Table<C> {
 
         let added = match self.answers_hash.entry(answer.subst.clone()) {
             Entry::Vacant(entry) => {
-                entry.insert(answer.ambiguous);
+                entry.insert(());
                 true
             }
 
-            Entry::Occupied(entry) => {
-                let was_ambiguous = entry.get();
-                if *was_ambiguous && !answer.ambiguous {
-                    panic!("New answer was not ambiguous whereas previous answer was.");
-                }
+            Entry::Occupied(_) => {
                 false
             }
         };

@@ -192,11 +192,6 @@ pub struct Answer<C: Context> {
     /// still be proven) and region constrained (which must still be
     /// proven, but not by chalk).
     pub subst: C::CanonicalAnswerSubst,
-
-    /// If this flag is set, then the answer could be neither proven
-    /// nor disproven. This could be the size of the answer exceeded
-    /// `max_size` or because of a negative loop (e.g., `P :- not { P }`).
-    pub ambiguous: bool,
 }
 
 #[derive(Clone, Debug)]
