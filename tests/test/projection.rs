@@ -463,7 +463,7 @@ fn normalize_under_binder() {
                 }
             }
         } yields {
-            "Ambiguous"
+            "Unique; substitution [?0 := I32], lifetime constraints []"
         }
 
         goal {
@@ -483,7 +483,7 @@ fn normalize_under_binder() {
                 }
             }
         } yields {
-            "Ambiguous"
+            "Unique; substitution [?0 := Ref<'!1_0, I32>], lifetime constraints []"
         }
 
         goal {

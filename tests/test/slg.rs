@@ -1609,7 +1609,7 @@ fn projection_equality_slg() {
             }
         } first 1 with max 10 {
             r"[
-                Answer {
+                CompleteAnswer {
                     subst: Canonical {
                         value: ConstrainedSubst {
                             subst: [?0 := u32]
@@ -1628,7 +1628,7 @@ fn projection_equality_slg() {
             }
         } first 3 with max 10 {
             r"[
-                Answer {
+                CompleteAnswer {
                     subst: Canonical {
                         value: ConstrainedSubst {
                             subst: [?0 := S, ?1 := u32]
@@ -1638,7 +1638,7 @@ fn projection_equality_slg() {
                     }
                     ambiguous: false
                 }
-                Answer {
+                CompleteAnswer {
                     subst: Canonical {
                         value: ConstrainedSubst {
                             subst: [?0 := X, ?1 := i32]
