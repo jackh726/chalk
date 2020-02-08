@@ -186,27 +186,6 @@ impl<I: Interner> context::Context for SlgContext<I> {
             GoalData::CannotProve(()) => HhGoal::CannotProve,
         }
     }
-
-    // Used by: simplify
-    fn add_clauses(env: &Environment<I>, clauses: Vec<ProgramClause<I>>) -> Environment<I> {
-        Environment::add_clauses(env, clauses)
-    }
-
-    fn into_goal(domain_goal: DomainGoal<I>) -> Goal<I> {
-        domain_goal.cast()
-    }
-
-    // Used by: logic
-    fn next_subgoal_index(ex_clause: &ExClause<SlgContext<I>>) -> usize {
-        // For now, we always pick the last subgoal in the
-        // list.
-        //
-        // FIXME(rust-lang-nursery/chalk#80) -- we should be more
-        // selective. For example, we don't want to pick a
-        // negative literal that will flounder, and we don't want
-        // to pick things like `?T: Sized` if we can help it.
-        ex_clause.subgoals.len() - 1
-    }
 }
 
 impl<'me, I: Interner> context::ContextOps<SlgContext<I>> for SlgContextOps<'me, I> {
@@ -355,7 +334,32 @@ impl<I: Interner> context::TruncateOps<SlgContext<I>> for TruncatingInferenceTab
     }
 }
 
-impl<I: Interner> context::InferenceTable<SlgContext<I>> for TruncatingInferenceTable<I> {}
+impl<I: Interner> context::InferenceTable<SlgContext<I>> for TruncatingInferenceTable<I> {
+    // Used by: simplify
+    fn add_clauses(
+        &mut self,
+        env: &Environment<I>,
+        clauses: Vec<ProgramClause<I>>,
+    ) -> Environment<I> {
+        Environment::add_clauses(env, clauses)
+    }
+
+    fn into_goal(&self, domain_goal: DomainGoal<I>) -> Goal<I> {
+        domain_goal.cast()
+    }
+
+    // Used by: logic
+    fn next_subgoal_index(&mut self, ex_clause: &ExClause<SlgContext<I>>) -> usize {
+        // For now, we always pick the last subgoal in the
+        // list.
+        //
+        // FIXME(rust-lang-nursery/chalk#80) -- we should be more
+        // selective. For example, we don't want to pick a
+        // negative literal that will flounder, and we don't want
+        // to pick things like `?T: Sized` if we can help it.
+        ex_clause.subgoals.len() - 1
+    }
+}
 
 impl<I: Interner> context::UnificationOps<SlgContext<I>> for TruncatingInferenceTable<I> {
     fn instantiate_binders_universally(&mut self, arg: &Binders<Goal<I>>) -> Goal<I> {
