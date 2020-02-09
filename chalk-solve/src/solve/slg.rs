@@ -344,7 +344,7 @@ impl<I: Interner> context::InferenceTable<SlgContext<I>> for TruncatingInference
         Environment::add_clauses(env, clauses)
     }
 
-    fn into_goal(&self, domain_goal: DomainGoal<I>) -> Goal<I> {
+    fn into_goal(&mut self, domain_goal: DomainGoal<I>) -> Goal<I> {
         domain_goal.cast()
     }
 

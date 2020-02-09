@@ -266,7 +266,7 @@ pub trait InferenceTable<C: Context>: ResolventOps<C> + TruncateOps<C> + Unifica
     fn add_clauses(&mut self, env: &C::Environment, clauses: C::ProgramClauses) -> C::Environment;
 
     /// Upcast this domain goal into a more general goal.
-    fn into_goal(&self, domain_goal: C::DomainGoal) -> C::Goal;
+    fn into_goal(&mut self, domain_goal: C::DomainGoal) -> C::Goal;
 
     /// Selects the next appropriate subgoal index for evaluation.
     /// Used by: logic
