@@ -1,4 +1,5 @@
 use crate::cast::{Cast, CastTo};
+use crate::clauses::syntactic_eq::syn_eq_lower;
 use crate::RustIrDatabase;
 use chalk_ir::fold::Fold;
 use chalk_ir::interner::{HasInterner, Interner};
@@ -76,18 +77,13 @@ impl<'me, I: Interner> ClauseBuilder<'me, I> {
             priority,
         };
 
-        if self.binders.len() == 0 {
-            self.clauses
-                .push(ProgramClauseData::Implies(clause).intern(interner));
+        let clause = if self.binders.len() == 0 {
+            ProgramClauseData::Implies(clause).intern(interner)
         } else {
-            self.clauses.push(
-                ProgramClauseData::ForAll(Binders::new(
-                    ParameterKinds::from(interner, self.binders.clone()),
-                    clause,
-                ))
-                .intern(interner),
-            );
-        }
+            ProgramClauseData::ForAll(Binders::new(ParameterKinds::from(interner, self.binders.clone()), clause)).intern(interner)
+        };
+
+        self.clauses.push(syn_eq_lower(interner, &clause));
 
         debug!("pushed clause {:?}", self.clauses.last());
     }

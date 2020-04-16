@@ -817,6 +817,13 @@ impl<T, L> ParameterKind<T, L> {
             _ => None,
         }
     }
+
+    pub fn anonymize(&self) -> ParameterKind<()> {
+        match self {
+            ParameterKind::Ty(_) => ParameterKind::Ty(()),
+            ParameterKind::Lifetime(_) => ParameterKind::Lifetime(()),
+        }
+    }
 }
 
 #[derive(Copy, Clone, PartialEq, Eq, Hash, PartialOrd, Ord, HasInterner)]
@@ -850,6 +857,18 @@ impl<I: Interner> Parameter<I> {
         match self.data(interner) {
             ParameterKind::Ty(t) => ParameterKind::Ty(t),
             ParameterKind::Lifetime(l) => ParameterKind::Lifetime(l),
+        }
+    }
+
+    pub fn replace_bound(&self, bound_var: BoundVar, interner: &I) -> Self {
+        match self.data(interner) {
+            ParameterKind::Ty(_) => {
+                ParameterKind::Ty(TyData::BoundVar(bound_var).intern(interner)).intern(interner)
+            }
+            ParameterKind::Lifetime(_) => {
+                ParameterKind::Lifetime(LifetimeData::BoundVar(bound_var).intern(interner))
+                    .intern(interner)
+            }
         }
     }
 
