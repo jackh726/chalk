@@ -16,6 +16,7 @@ mod dyn_ty;
 mod env_elaborator;
 mod generalize;
 pub mod program_clauses;
+pub mod syntactic_eq;
 
 /// For auto-traits, we generate a default rule for every struct,
 /// unless there is a manual impl for that struct given explicitly.
@@ -313,9 +314,15 @@ fn program_clauses_that_could_match<I: Interner>(
                 .to_program_clauses(builder),
         },
         DomainGoal::Holds(WhereClause::LifetimeOutlives(_)) => {}
-        DomainGoal::WellFormed(WellFormed::Trait(trait_ref))
-        | DomainGoal::LocalImplAllowed(trait_ref) => {
-            db.trait_datum(trait_ref.trait_id)
+        DomainGoal::LocalImplAllowed(trait_ref) => db
+            .trait_datum(trait_ref.trait_id)
+            .to_program_clauses(builder),
+        DomainGoal::WellFormed(WellFormed::Trait(trait_predicate)) => {
+            let self_ty = trait_predicate.self_type_parameter(interner);
+            if self_ty.bound_var(interner).is_some() || self_ty.inference_var(interner).is_some() {
+                return Err(Floundered);
+            }
+            db.trait_datum(trait_predicate.trait_id)
                 .to_program_clauses(builder);
         }
         DomainGoal::ObjectSafe(trait_id) => {
