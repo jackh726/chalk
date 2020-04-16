@@ -80,7 +80,11 @@ impl<'me, I: Interner> ClauseBuilder<'me, I> {
         let clause = if self.binders.len() == 0 {
             ProgramClauseData::Implies(clause).intern(interner)
         } else {
-            ProgramClauseData::ForAll(Binders::new(ParameterKinds::from(interner, self.binders.clone()), clause)).intern(interner)
+            ProgramClauseData::ForAll(Binders::new(
+                ParameterKinds::from(interner, self.binders.clone()),
+                clause,
+            ))
+            .intern(interner)
         };
 
         self.clauses.push(syn_eq_lower(interner, &clause));

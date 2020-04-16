@@ -2,47 +2,32 @@ use std::{iter, mem::replace};
 
 use chalk_engine::fallible::Fallible;
 use chalk_ir::{
+    cast::Cast,
     fold::{shift::Shift, Fold, Folder, SuperFold},
     interner::Interner,
-    Binders, BoundVar, DebruijnIndex, EqGoal, Goal, GoalData, Goals, Parameter, ProgramClause,
-    ProgramClauseData, ProgramClauseImplication, QuantifierKind, Ty, TyData, ParameterKind, ApplicationTy, TypeName,
-    ParameterKinds,
+    AliasEq, AliasTy, Binders, BoundVar, DebruijnIndex, Goal, GoalData, Goals, ParameterKind,
+    ParameterKinds, ProgramClause, ProgramClauseData, ProgramClauseImplication, QuantifierKind, Ty,
+    TyData,
 };
 
-pub fn syn_eq_lower<I: Interner>(interner: &I, clause: &ProgramClause<I>) -> ProgramClause<I> {
+pub fn syn_eq_lower<I: Interner, T: Fold<I>>(interner: &I, clause: &T) -> <T as Fold<I>>::Result {
     let mut folder = SynEqFolder {
         interner,
         new_params: vec![],
+        new_goals: vec![],
         binders_len: 0,
     };
 
-    clause.fold_with(&mut folder, DebruijnIndex::INNERMOST).unwrap()
+    clause
+        .fold_with(&mut folder, DebruijnIndex::INNERMOST)
+        .unwrap()
 }
 
 struct SynEqFolder<'i, I: Interner> {
     interner: &'i I,
-    new_params: Vec<Parameter<I>>,
+    new_params: Vec<ParameterKind<()>>,
+    new_goals: Vec<Goal<I>>,
     binders_len: usize,
-}
-
-impl<'i, I: Interner> SynEqFolder<'i, I>
-where
-    I: 'i,
-{
-    fn to_eq_goals(&self, new_params: Vec<Parameter<I>>, old_len: usize) -> impl Iterator<Item = Goal<I>> + 'i {
-        let interner = self.interner;
-        new_params.into_iter().enumerate().map(move |(i, p)| {
-            let var = BoundVar {
-                debruijn: DebruijnIndex::INNERMOST,
-                index: i + old_len,
-            };
-            GoalData::EqGoal(EqGoal {
-                a: p.replace_bound(var, interner),
-                b: p,
-            })
-            .intern(interner)
-        })
-    }
 }
 
 impl<'i, I: Interner> Folder<'i, I> for SynEqFolder<'i, I> {
@@ -54,14 +39,23 @@ impl<'i, I: Interner> Folder<'i, I> for SynEqFolder<'i, I> {
         let interner = self.interner;
         let bound_var = BoundVar::new(DebruijnIndex::INNERMOST, self.binders_len);
 
-        let folded = ty.super_fold_with(self, outer_binder)?;
-        match folded.data(interner) {
-            TyData::Apply(ApplicationTy { name: TypeName::AssociatedType(_), .. }) => {
-                self.new_params.push(ParameterKind::Ty(ty.clone()).intern(interner));
+        let new_ty = TyData::BoundVar(bound_var).intern(interner);
+        match ty.data(interner) {
+            TyData::Alias(alias @ AliasTy::Projection(_)) => {
+                self.new_params.push(ParameterKind::Ty(()));
+                self.new_goals.push(
+                    AliasEq {
+                        alias: alias.clone(),
+                        ty: new_ty.clone(),
+                    }
+                    .cast(interner),
+                );
                 self.binders_len += 1;
-                Ok(TyData::BoundVar(bound_var).intern(interner))
+                ty.super_fold_with(self, outer_binder)?;
+                Ok(new_ty)
             }
-            _ => ty.super_fold_with(self, outer_binder),
+            TyData::Function(_) => Ok(ty.clone()),
+            _ => Ok(ty.super_fold_with(self, outer_binder)?),
         }
     }
 
@@ -73,14 +67,18 @@ impl<'i, I: Interner> Folder<'i, I> for SynEqFolder<'i, I> {
         let interner = self.interner;
 
         let ((binders, implication), in_binders) = match clause.data(interner) {
-            ProgramClauseData::ForAll(for_all) => {
-                (for_all.clone().into(), true)
-            }
+            ProgramClauseData::ForAll(for_all) => (for_all.clone().into(), true),
             // introduce a dummy binder and shift implication through it
-            ProgramClauseData::Implies(implication) => ((ParameterKinds::new(interner), implication.shifted_in(interner)), false),
+            ProgramClauseData::Implies(implication) => (
+                (
+                    ParameterKinds::new(interner),
+                    implication.shifted_in(interner),
+                ),
+                false,
+            ),
         };
         let mut binders: Vec<_> = binders.as_slice(interner).clone().into();
-        
+
         let outer_binder = outer_binder.shifted_in();
 
         self.binders_len = binders.len();
@@ -88,27 +86,27 @@ impl<'i, I: Interner> Folder<'i, I> for SynEqFolder<'i, I> {
         // Immediately move `new_params` out of of the folder struct so it's safe
         // to call `.fold_with` again
         let new_params = replace(&mut self.new_params, vec![]);
-        
+        let new_goals = replace(&mut self.new_goals, vec![]);
+
         let mut conditions = implication.conditions.fold_with(self, outer_binder)?;
         if new_params.is_empty() && !in_binders {
             // shift the clause out since we didn't use the dummy binder
-            return Ok(ProgramClauseData::Implies(ProgramClauseImplication {
-                consequence,
-                conditions,
-                priority: implication.priority,
-            }.shifted_out(interner)?)
+            return Ok(ProgramClauseData::Implies(
+                ProgramClauseImplication {
+                    consequence,
+                    conditions,
+                    priority: implication.priority,
+                }
+                .shifted_out(interner)?,
+            )
             .intern(interner));
         }
 
-        let old_len = binders.len();
-        binders.extend(new_params.iter().map(|p| p.data(interner).anonymize()));
+        binders.extend(new_params.into_iter());
 
         conditions = Goals::from(
             interner,
-            conditions
-                .iter(interner)
-                .cloned()
-                .chain(self.to_eq_goals(new_params, old_len)),
+            conditions.iter(interner).cloned().chain(new_goals),
         );
 
         Ok(ProgramClauseData::ForAll(Binders::new(
@@ -126,37 +124,35 @@ impl<'i, I: Interner> Folder<'i, I> for SynEqFolder<'i, I> {
         assert!(self.new_params.is_empty(), true);
 
         let interner = self.interner;
-        let domain_goal = match goal.data(interner) {
-            GoalData::DomainGoal(dg) => dg,
+        match goal.data(interner) {
+            GoalData::DomainGoal(_) | GoalData::EqGoal(_) => (),
             _ => return goal.super_fold_with(self, outer_binder),
         };
 
         self.binders_len = 0;
         // shifted in because we introduce a new binder
         let outer_binder = outer_binder.shifted_in();
-        let domain_goal =
-            GoalData::DomainGoal(domain_goal.shifted_in(interner).fold_with(self, outer_binder)?).intern(interner);
+        let syn_goal = goal
+            .shifted_in(interner)
+            .super_fold_with(self, outer_binder)?;
         let new_params = replace(&mut self.new_params, vec![]);
+        let new_goals = replace(&mut self.new_goals, vec![]);
 
-        let binders: Vec<_> = new_params
-            .iter()
-            .map(|p| p.data(interner).anonymize())
-            .collect();
-
-        if binders.is_empty() {
+        if new_params.is_empty() {
             return Ok(goal.clone());
         }
 
         let goal = GoalData::All(Goals::from(
             interner,
-            iter::once(domain_goal).chain(self.to_eq_goals(new_params, 0)),
+            iter::once(syn_goal).into_iter().chain(new_goals),
         ))
         .intern(interner);
 
-        Ok(
-            GoalData::Quantified(QuantifierKind::Exists, Binders::new(ParameterKinds::from(interner, binders), goal))
-                .intern(interner),
+        Ok(GoalData::Quantified(
+            QuantifierKind::Exists,
+            Binders::new(ParameterKinds::from(interner, new_params), goal),
         )
+        .intern(interner))
     }
 
     fn interner(&self) -> &'i I {
