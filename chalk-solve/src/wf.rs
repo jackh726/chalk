@@ -8,7 +8,8 @@ use crate::RustIrDatabase;
 use chalk_ir::cast::*;
 use chalk_ir::fold::shift::Shift;
 use chalk_ir::interner::Interner;
-use chalk_ir::visit::{Visit, Visitor};
+use chalk_ir::visit::{Visit, Visitor, SuperVisit};
+use chalk_ir::visit::visitors::FindAny;
 use chalk_ir::*;
 use chalk_rust_ir::*;
 
@@ -16,6 +17,7 @@ use chalk_rust_ir::*;
 pub enum WfError<I: Interner> {
     IllFormedTypeDecl(chalk_ir::StructId<I>),
     IllFormedTraitImpl(chalk_ir::TraitId<I>),
+    IllFormedTypeUsage,
 }
 
 impl<I: Interner> fmt::Display for WfError<I> {
@@ -31,6 +33,10 @@ impl<I: Interner> fmt::Display for WfError<I> {
                 "trait impl for `{:?}` does not meet well-formedness requirements",
                 id
             ),
+            WfError::IllFormedTypeUsage => write!(
+                f,
+                "type usage does not meet well-formed requirements"
+            )
         }
     }
 }
@@ -236,6 +242,20 @@ where
             Ok(())
         } else {
             Err(WfError::IllFormedTraitImpl(trait_id))
+        }
+    }
+
+    pub fn verify_goal(&self, goal: &Goal<I>) -> Result<(), WfError<I>> {
+        let interner = self.db.interner();
+
+        let mut checker = TypeWFChecker {
+            interner,
+        };
+        let found_err = goal.visit_with(&mut checker, DebruijnIndex::INNERMOST);
+        if found_err.to_bool() {
+            Err(WfError::IllFormedTypeUsage)
+        } else {
+            Ok(())
         }
     }
 }
@@ -690,5 +710,36 @@ impl WfWellKnownGoals {
         );
 
         Some(gb.all([implied_by_struct_def_goal, eq_goal].iter()))
+    }
+}
+
+struct TypeWFChecker<'i, I: Interner> {
+    interner: &'i I,
+}
+
+impl<'i, I: Interner + 'i> Visitor<'i, I> for TypeWFChecker<'i, I> {
+    type Result = FindAny;
+
+    fn visit_ty(&mut self, ty: &Ty<I>, outer_binder: DebruijnIndex) -> FindAny {
+        match ty.data(self.interner) {
+            TyData::Apply(apply) => match apply.name {
+                TypeName::Tuple(arity) => {
+                    if arity > 1 {
+                        panic!();
+                    }
+                }
+                _ => {}
+            }
+            _ => {}
+        }
+        ty.super_visit_with(self.as_dyn(), outer_binder)
+    }
+
+    fn as_dyn(&mut self) -> &mut dyn Visitor<'i, I, Result = Self::Result> {
+        self
+    }
+
+    fn interner(&self) -> &'i I {
+        self.interner
     }
 }

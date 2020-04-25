@@ -249,6 +249,10 @@ fn solve_goal(program_text: &str, goals: Vec<(&str, SolverChoice, TestGoal)>) {
                 .lower(&*program)
                 .unwrap();
 
+            // WF check goal
+            let solver = chalk_solve::wf::WfSolver::new(&db, db.solver_choice());
+            solver.verify_goal(&goal).unwrap();
+
             println!("using solver: {:?}", solver_choice);
             let peeled_goal = goal.into_peeled_goal(db.interner());
             match expected {
