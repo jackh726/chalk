@@ -649,10 +649,10 @@ pub trait HasInterner {
 mod default {
     use super::*;
     use crate::tls;
-    use lalrpop_intern::InternedString;
+    use string_cache::DefaultAtom;
     use std::fmt;
 
-    pub type Identifier = InternedString;
+    pub type Identifier = DefaultAtom;
 
     #[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
     pub struct RawId {
