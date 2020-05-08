@@ -66,12 +66,7 @@ impl<C: Context> Forest<C> {
                     &mut ex_clause,
                 )?,
                 HhGoal::DomainGoal(domain_goal) => {
-                    ex_clause
-                        .subgoals
-                        .push(Literal::Positive(C::goal_in_environment(
-                            &environment,
-                            context.into_goal(domain_goal),
-                        )));
+                    context.add_goal_to_ex_clause(&mut ex_clause, &environment, domain_goal);
                 }
                 HhGoal::CannotProve => {
                     ex_clause.ambiguous = true;

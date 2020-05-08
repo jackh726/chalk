@@ -301,6 +301,29 @@ impl<'me, I: Interner> context::ContextOps<SlgContext<I>> for SlgContextOps<'me,
             GoalData::CannotProve(()) => HhGoal::CannotProve,
         }
     }
+
+    fn add_goal_to_ex_clause(
+        &self,
+        ex_clause: &mut ExClause<SlgContext<I>>,
+        environment: &Environment<I>,
+        domain_goal: DomainGoal<I>,
+    ) {
+        match domain_goal {
+            DomainGoal::Holds(WhereClause::LifetimeOutlives(a, b)) => {
+                ex_clause
+                    .constraints
+                    .push(InEnvironment::new(environment, Constraint::Outlives(a, b)));
+            }
+            _ => {
+                ex_clause
+                    .subgoals
+                    .push(Literal::Positive(InEnvironment::new(
+                        environment,
+                        self.into_goal(domain_goal),
+                    )));
+            }
+        }
+    }
 }
 
 impl<I: Interner> TruncatingInferenceTable<I> {

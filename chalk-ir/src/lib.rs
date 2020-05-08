@@ -965,6 +965,7 @@ impl<I: Interner> TraitRef<I> {
 pub enum WhereClause<I: Interner> {
     Implemented(TraitRef<I>),
     AliasEq(AliasEq<I>),
+    LifetimeOutlives(Lifetime<I>, Lifetime<I>),
 }
 
 #[derive(Clone, PartialEq, Eq, Hash, Fold, Visit, HasInterner, Zip)]
