@@ -266,6 +266,13 @@ pub trait ContextOps<C: Context>: Sized + Clone + Debug + AggregateOps<C> {
     /// `HhGoal`, but the goals contained within are left as context
     /// goals.
     fn into_hh_goal(&self, goal: C::Goal) -> HhGoal<C>;
+
+    fn add_goal_to_ex_clause(
+        &self,
+        ex_clause: &mut ExClause<C>,
+        environment: &C::Environment,
+        domain_goal: C::DomainGoal,
+    );
 }
 
 /// Methods for combining solutions to yield an aggregate solution.

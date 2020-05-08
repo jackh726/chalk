@@ -93,6 +93,23 @@ impl<I: Interner> context::ResolventOps<SlgContext<I>> for TruncatingInferenceTa
         debug!("consequence = {:?}", consequence);
         debug!("conditions = {:?}", conditions);
 
+        let constraints = conditions
+            .iter(interner)
+            .filter_map(|c| match c.data(interner) {
+                GoalData::DomainGoal(DomainGoal::Holds(WhereClause::LifetimeOutlives(a, b))) => {
+                    Some(InEnvironment::new(environment, Constraint::Outlives(a.clone(), b.clone())))
+                },
+                GoalData::Not(c1) => match c1.data(interner) {
+                    GoalData::DomainGoal(DomainGoal::Holds(WhereClause::LifetimeOutlives(a, b))) => {
+                        panic!("Not allowed.")
+                    },
+                    _ => None,
+                },
+                _ => None,
+            })
+            .collect();
+        dbg!(&constraints);
+
         // Unify the selected literal Li with C'.
         let unification_result = self
             .infer
@@ -102,7 +119,7 @@ impl<I: Interner> context::ResolventOps<SlgContext<I>> for TruncatingInferenceTa
         let mut ex_clause = ExClause {
             subst: subst.clone(),
             ambiguous: false,
-            constraints: vec![],
+            constraints,
             subgoals: vec![],
             delayed_subgoals: vec![],
             answer_time: TimeStamp::default(),
@@ -112,15 +129,26 @@ impl<I: Interner> context::ResolventOps<SlgContext<I>> for TruncatingInferenceTa
         // Add the subgoals/region-constraints that unification gave us.
         slg::into_ex_clause(interner, unification_result, &mut ex_clause);
 
-        // Add the `conditions` from the program clause into the result too.
-        ex_clause
-            .subgoals
-            .extend(conditions.iter(interner).map(|c| match c.data(interner) {
+        let conditions_iter = conditions
+            .iter(interner)
+            .filter(|c| match c.data(interner) {
+                GoalData::DomainGoal(DomainGoal::Holds(WhereClause::LifetimeOutlives(..))) => false,
+                GoalData::Not(c1) => match c1.data(interner) {
+                    GoalData::DomainGoal(DomainGoal::Holds(WhereClause::LifetimeOutlives(..))) => false,
+                    _ => true,
+                },
+                _ => true,
+            })
+            .map(|c| match c.data(interner) {
                 GoalData::Not(c1) => {
                     Literal::Negative(InEnvironment::new(environment, Goal::clone(c1)))
                 }
                 _ => Literal::Positive(InEnvironment::new(environment, Goal::clone(c))),
-            }));
+            });
+        // Add the `conditions` from the program clause into the result too.
+        ex_clause
+            .subgoals
+            .extend(conditions_iter);
 
         Ok(ex_clause)
     }
@@ -235,6 +263,7 @@ impl<I: Interner> context::ResolventOps<SlgContext<I>> for TruncatingInferenceTa
         } = self
             .infer
             .instantiate_canonical(interner, &canonical_answer_subst);
+        dbg!(&answer_constraints);
 
         let table_goal = self
             .infer
@@ -249,6 +278,11 @@ impl<I: Interner> context::ResolventOps<SlgContext<I>> for TruncatingInferenceTa
             &answer_table_goal.value,
             selected_goal,
         )?;
+        // FIXME: we could be smarter here
+        //let answer_constraints: Vec<_> = answer_constraints
+        //    .into_iter()
+        //    .filter(|c| !ex_clause.constraints.contains(c))
+        //    .collect();
         ex_clause.constraints.extend(answer_constraints);
 
         for delayed_subgoal in delayed_subgoals {

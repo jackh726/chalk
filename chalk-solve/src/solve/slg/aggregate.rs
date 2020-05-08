@@ -22,7 +22,7 @@ impl<I: Interner> context::AggregateOps<SlgContext<I>> for SlgContextOps<'_, I> 
         should_continue: impl std::ops::Fn() -> bool,
     ) -> Option<Solution<I>> {
         let interner = self.program.interner();
-        let CompleteAnswer { subst, ambiguous } = match answers.next_answer(|| should_continue()) {
+        let CompleteAnswer { subst, ambiguous } = match dbg!(answers.next_answer(|| should_continue())) {
             AnswerResult::NoMoreSolutions => {
                 // No answers at all
                 return None;
@@ -39,13 +39,14 @@ impl<I: Interner> context::AggregateOps<SlgContext<I>> for SlgContextOps<'_, I> 
 
         // Exactly 1 unconditional answer?
         let next_answer = answers.peek_answer(|| should_continue());
+        dbg!(&next_answer);
         if next_answer.is_quantum_exceeded() {
             return Some(Solution::Ambig(Guidance::Suggested(
                 subst.map(interner, |cs| cs.subst),
             )));
         }
         if next_answer.is_no_more_solutions() && !ambiguous {
-            return Some(Solution::Unique(subst));
+            return dbg!(Some(Solution::Unique(subst)));
         }
 
         // Otherwise, we either have >1 answer, or else we have
@@ -66,6 +67,7 @@ impl<I: Interner> context::AggregateOps<SlgContext<I>> for SlgContextOps<'_, I> 
         // a trivial subst (or run out of answers).
         let mut num_answers = 1;
         let guidance = loop {
+            dbg!(&subst);
             if subst.value.is_empty(interner) || is_trivial(interner, &subst) {
                 break Guidance::Unknown;
             }
@@ -95,12 +97,14 @@ impl<I: Interner> context::AggregateOps<SlgContext<I>> for SlgContextOps<'_, I> 
                     break Guidance::Suggested(subst);
                 }
             };
+            dbg!(&new_subst);
             subst = merge_into_guidance(
                 interner,
                 SlgContext::canonical(root_goal),
                 subst,
                 &new_subst,
             );
+            dbg!(&subst);
             num_answers += 1;
         };
 
@@ -110,7 +114,7 @@ impl<I: Interner> context::AggregateOps<SlgContext<I>> for SlgContextOps<'_, I> 
                 "Not enough answers for solution."
             );
         }
-        Some(Solution::Ambig(guidance))
+        dbg!(Some(Solution::Ambig(guidance)))
     }
 }
 

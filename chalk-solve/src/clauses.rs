@@ -243,7 +243,13 @@ fn program_clauses_that_could_match<I: Interner>(
             AliasTy::Opaque(opaque_ty) => db
                 .opaque_ty_data(opaque_ty.opaque_ty_id)
                 .to_program_clauses(builder),
-        },
+        }
+        DomainGoal::Holds(WhereClause::LifetimeOutlives(a, b)) => {
+            builder.push_clause(
+                DomainGoal::Holds(WhereClause::LifetimeOutlives(a.clone(), b.clone())),
+                Some(DomainGoal::Holds(WhereClause::LifetimeOutlives(a.clone(), b.clone()))),
+            );
+        }
         DomainGoal::WellFormed(WellFormed::Trait(trait_predicate)) => {
             db.trait_datum(trait_predicate.trait_id)
                 .to_program_clauses(builder);
