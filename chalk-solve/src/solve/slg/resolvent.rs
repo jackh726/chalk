@@ -100,7 +100,7 @@ impl<I: Interner> context::ResolventOps<SlgContext<I>> for TruncatingInferenceTa
                     Some(InEnvironment::new(environment, Constraint::Outlives(a.clone(), b.clone())))
                 },
                 GoalData::Not(c1) => match c1.data(interner) {
-                    GoalData::DomainGoal(DomainGoal::Holds(WhereClause::LifetimeOutlives(a, b))) => {
+                    GoalData::DomainGoal(DomainGoal::Holds(WhereClause::LifetimeOutlives(_a, _b))) => {
                         panic!("Not allowed.")
                     },
                     _ => None,
@@ -108,7 +108,6 @@ impl<I: Interner> context::ResolventOps<SlgContext<I>> for TruncatingInferenceTa
                 _ => None,
             })
             .collect();
-        dbg!(&constraints);
 
         // Unify the selected literal Li with C'.
         let unification_result = self
@@ -291,7 +290,7 @@ impl<I: Interner> context::ResolventOps<SlgContext<I>> for TruncatingInferenceTa
             // be a "trivial self-cycle"?)
             // Only add the delayed_subgoals to the ex-clause if
             // it isn't a trivial self-cycle
-            if delayed_subgoal.goal != table_goal.goal {
+            if dbg!(&delayed_subgoal.goal) != dbg!(&table_goal.goal) {
                 ex_clause.delayed_subgoals.push(delayed_subgoal);
             }
         }

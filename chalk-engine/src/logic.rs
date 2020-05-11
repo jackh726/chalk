@@ -269,15 +269,18 @@ impl<C: Context> Forest<C> {
                                 &subst,
                                 &clause,
                             ) {
-                                info!("pushing initial strand with ex-clause: {:#?}", &resolvent,);
-                                let strand = Strand {
-                                    infer,
-                                    ex_clause: resolvent,
-                                    selected_subgoal: None,
-                                    last_pursued_time: TimeStamp::default(),
-                                };
-                                let canonical_strand = Self::canonicalize_strand(context, strand);
-                                table_ref.enqueue_strand(canonical_strand);
+                                debug!("initial raw ex-clause: {:#?}", &resolvent,);
+                                if let Ok(resolvent) = context.simplify_goals(&mut infer, resolvent) {
+                                    info!("pushing initial strand with ex-clause: {:#?}", &resolvent,);
+                                    let strand = Strand {
+                                        infer,
+                                        ex_clause: resolvent,
+                                        selected_subgoal: None,
+                                        last_pursued_time: TimeStamp::default(),
+                                    };
+                                    let canonical_strand = Self::canonicalize_strand(context, strand);
+                                    table_ref.enqueue_strand(canonical_strand);
+                                }
                             }
                         }
                     }
@@ -297,19 +300,13 @@ impl<C: Context> Forest<C> {
                 // simplified subgoals. You can think of this as
                 // applying built-in "meta program clauses" that
                 // reduce HH goals into Domain goals.
-                if let Ok(ex_clause) =
-                    Self::simplify_hh_goal(context, &mut infer, subst, environment, hh_goal)
+                if let Ok(mut strand) =
+                    Self::simplify_hh_goal(context, infer, subst, environment, hh_goal)
                 {
                     info!(
                         "pushing initial strand with ex-clause: {:#?}",
-                        infer.debug_ex_clause(context.interner(), &ex_clause),
+                        strand.infer.debug_ex_clause(context.interner(), &strand.ex_clause),
                     );
-                    let strand = Strand {
-                        infer,
-                        ex_clause,
-                        selected_subgoal: None,
-                        last_pursued_time: TimeStamp::default(),
-                    };
                     let canonical_strand = Self::canonicalize_strand(context, strand);
                     table_ref.enqueue_strand(canonical_strand);
                 }
@@ -578,8 +575,8 @@ impl<'forest, C: Context + 'forest, CO: ContextOps<C> + 'forest> SolveState<'for
                     &C::canonical(&self.forest.tables[subgoal_table].table_goal),
                 );
                 let answer_subst = &self.context.map_subst_from_canonical(
-                    &universe_map,
-                    &self.forest.answer(subgoal_table, answer_index).subst,
+                    dbg!(&universe_map),
+                    dbg!(&self.forest.answer(subgoal_table, answer_index).subst),
                 );
                 match strand.infer.apply_answer_subst(
                     self.context.interner(),
@@ -995,7 +992,7 @@ impl<'forest, C: Context + 'forest, CO: ContextOps<C> + 'forest> SolveState<'for
         let filtered_delayed_subgoals = delayed_subgoals
             .into_iter()
             .filter(|delayed_subgoal| {
-                *C::goal_from_goal_in_environment(delayed_subgoal) != table_goal
+                dbg!(C::goal_from_goal_in_environment(delayed_subgoal)) != dbg!(&table_goal)
             })
             .map(Literal::Positive)
             .collect();

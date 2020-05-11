@@ -1,4 +1,5 @@
-use crate::context::{Context, ContextOps, InferenceTable};
+use crate::context::{Context, ContextOps, UnificationOps};
+use crate::strand::Strand;
 use crate::fallible::Fallible;
 use crate::forest::Forest;
 use crate::hh::HhGoal;
@@ -10,11 +11,11 @@ impl<C: Context> Forest<C> {
     /// includes unifications that cannot be completed.
     pub(super) fn simplify_hh_goal(
         context: &impl ContextOps<C>,
-        infer: &mut dyn InferenceTable<C>,
+        mut infer: C::InferenceTable,
         subst: C::Substitution,
         initial_environment: C::Environment,
         initial_hh_goal: HhGoal<C>,
-    ) -> Fallible<ExClause<C>> {
+    ) -> Fallible<Strand<C>> {
         let mut ex_clause = ExClause {
             subst,
             ambiguous: false,
@@ -66,6 +67,38 @@ impl<C: Context> Forest<C> {
                     &mut ex_clause,
                 )?,
                 HhGoal::DomainGoal(domain_goal) => {
+                    /*
+                    match context.program_clauses(&environment, &domain_goal, &mut infer) {
+                        Ok(clauses) => {
+                            for clause in clauses {
+                                info!("program clause = {:#?}", clause);
+                                let mut infer = infer.clone();
+                                if let Ok(resolvent) = infer.resolvent_clause(
+                                    context.interner(),
+                                    &environment,
+                                    &domain_goal,
+                                    &subst,
+                                    &clause,
+                                ) {
+                                    info!("pushing initial strand with ex-clause: {:#?}", &resolvent,);
+                                    let strand = Strand {
+                                        infer,
+                                        ex_clause: resolvent,
+                                        selected_subgoal: None,
+                                        last_pursued_time: TimeStamp::default(),
+                                    };
+                                    let canonical_strand = Self::canonicalize_strand(context, strand);
+                                    table_ref.enqueue_strand(canonical_strand);
+                                }
+                            }
+                        }
+                        Err(Floundered) => {
+                            debug!("Marking table {:?} as floundered!", table);
+                            table_ref.mark_floundered();
+                        }
+                    }
+                    */
+
                     context.add_goal_to_ex_clause(&mut ex_clause, &environment, domain_goal);
                 }
                 HhGoal::CannotProve => {
@@ -74,6 +107,13 @@ impl<C: Context> Forest<C> {
             }
         }
 
-        Ok(ex_clause)
+        let strand = Strand {
+            infer,
+            ex_clause,
+            selected_subgoal: None,
+            last_pursued_time: TimeStamp::default(),
+        };
+
+        Ok(strand)
     }
 }

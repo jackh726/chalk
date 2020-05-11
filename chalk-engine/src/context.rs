@@ -273,6 +273,12 @@ pub trait ContextOps<C: Context>: Sized + Clone + Debug + AggregateOps<C> {
         environment: &C::Environment,
         domain_goal: C::DomainGoal,
     );
+
+    fn simplify_goals(
+        &self,
+        infer: &mut C::InferenceTable,
+        ex_clause: ExClause<C>,
+    ) -> Fallible<ExClause<C>>;
 }
 
 /// Methods for combining solutions to yield an aggregate solution.

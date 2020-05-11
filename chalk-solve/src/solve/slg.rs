@@ -7,7 +7,7 @@ use crate::solve::truncate;
 use crate::solve::Solution;
 use crate::RustIrDatabase;
 use chalk_derive::HasInterner;
-use chalk_engine::context;
+use chalk_engine::context::{self, Context, UnificationOps};
 use chalk_engine::context::Floundered;
 use chalk_engine::fallible::Fallible;
 use chalk_engine::hh::HhGoal;
@@ -17,6 +17,7 @@ use chalk_ir::cast::Caster;
 use chalk_ir::interner::Interner;
 use chalk_ir::*;
 
+use std::collections::VecDeque;
 use std::fmt::Debug;
 use std::marker::PhantomData;
 
@@ -323,6 +324,103 @@ impl<'me, I: Interner> context::ContextOps<SlgContext<I>> for SlgContextOps<'me,
                     )));
             },
         }
+    }
+
+    fn simplify_goals(
+        &self,
+        infer: &mut TruncatingInferenceTable<I>,
+        ex_clause: ExClause<SlgContext<I>>,
+    ) -> Fallible<ExClause<SlgContext<I>>> {
+        let ExClause {
+            subst,
+            mut ambiguous,
+            mut constraints,
+            subgoals,
+            delayed_subgoals,
+            answer_time,
+            floundered_subgoals,
+        } = ex_clause;
+
+        // A stack of higher-level goals to process.
+        let mut pending_goals: VecDeque<_> = subgoals
+            .into_iter()
+            .map(|g| {
+                match g {
+                    Literal::Positive(g) =>  (g.environment, self.into_hh_goal(g.goal)),
+                    Literal::Negative(g) => (g.environment, HhGoal::Not(g.goal)),
+                }
+            }).collect();
+        let mut subgoals = vec![];
+
+        while let Some((environment, hh_goal)) = pending_goals.pop_front() {
+            match hh_goal {
+                HhGoal::ForAll(subgoal) => {
+                    let subgoal =
+                        infer.instantiate_binders_universally(self.interner(), &subgoal);
+                    pending_goals.push_front((environment, self.into_hh_goal(subgoal)));
+                }
+                HhGoal::Exists(subgoal) => {
+                    let subgoal =
+                        infer.instantiate_binders_existentially(self.interner(), &subgoal);
+                    pending_goals.push_front((environment, self.into_hh_goal(subgoal)))
+                }
+                HhGoal::Implies(wc, subgoal) => {
+                    let new_environment = self.add_clauses(&environment, wc);
+                    pending_goals.push_front((new_environment, self.into_hh_goal(subgoal)));
+                }
+                HhGoal::All(subgoals) => {
+                    for subgoal in subgoals {
+                        pending_goals.push_back((environment.clone(), self.into_hh_goal(subgoal)));
+                    }
+                }
+                HhGoal::Not(subgoal) => {
+                    subgoals
+                        .push(Literal::Negative(SlgContext::goal_in_environment(
+                            &environment,
+                            subgoal,
+                        )));
+                }
+                HhGoal::Unify(_variance, a, b) => {
+                    let result = infer.infer.unify(self.interner(), &environment, &a, &b)?;
+                    subgoals.extend(
+                        result
+                            .goals
+                            .into_iter()
+                            .casted(self.interner())
+                            .map(Literal::Positive),
+                    );
+                    constraints.extend(result.constraints);
+                },
+                HhGoal::DomainGoal(domain_goal) => {
+                    match domain_goal {
+                        DomainGoal::Holds(WhereClause::LifetimeOutlives(a, b)) => {
+                            constraints
+                                .push(InEnvironment::new(&environment, Constraint::Outlives(a, b)));
+                        },
+                        _ => {
+                            subgoals
+                                .push(Literal::Positive(InEnvironment::new(
+                                    &environment,
+                                    self.into_goal(domain_goal),
+                                )));
+                        },
+                    }
+                }
+                HhGoal::CannotProve => {
+                    ambiguous = true;
+                }
+            }
+        }
+
+        return Ok(ExClause {
+            subst,
+            ambiguous,
+            constraints,
+            subgoals,
+            delayed_subgoals,
+            answer_time,
+            floundered_subgoals,
+        });
     }
 }
 
