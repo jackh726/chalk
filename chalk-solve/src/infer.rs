@@ -149,14 +149,6 @@ impl<I: Interner> InferenceTable<I> {
         Some(v1)
     }
 
-    /// Returns true if `var` has been bound.
-    pub(crate) fn var_is_bound(&mut self, var: InferenceVar) -> bool {
-        match self.unify.probe_value(EnaVariable::from(var)) {
-            InferenceValue::Unbound(_) => false,
-            InferenceValue::Bound(_) => true,
-        }
-    }
-
     /// Finds the type to which `var` is bound, returning `None` if it is not yet
     /// bound.
     ///
@@ -198,36 +190,6 @@ impl<I: Interner> InferenceTable<I> {
             InferenceValue::Unbound(ui) => ui,
             InferenceValue::Bound(_) => panic!("var_universe invoked on bound variable"),
         }
-    }
-
-    /// Check whether the given substitution is the identity substitution in this
-    /// inference context.
-    pub(crate) fn is_trivial_substitution(
-        &mut self,
-        interner: &I,
-        subst: &Substitution<I>,
-    ) -> bool {
-        for value in subst.as_parameters(interner) {
-            match value.data(interner) {
-                ParameterKind::Ty(ty) => {
-                    if let Some(var) = ty.inference_var(interner) {
-                        if self.var_is_bound(var) {
-                            return false;
-                        }
-                    }
-                }
-
-                ParameterKind::Lifetime(lifetime) => {
-                    if let Some(var) = lifetime.inference_var(interner) {
-                        if self.var_is_bound(var) {
-                            return false;
-                        }
-                    }
-                }
-            }
-        }
-
-        true
     }
 }
 

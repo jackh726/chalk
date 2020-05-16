@@ -89,7 +89,12 @@ impl<C: Context> Forest<C> {
                     if !answer.ambiguous {
                         SubstitutionResult::Definite(context.constrained_subst_from_answer(answer))
                     } else {
-                        SubstitutionResult::Ambiguous(context.constrained_subst_from_answer(answer))
+                        let subst = context.constrained_subst_from_answer(answer);
+                        if context.is_trivial_constrained_substitution(&subst) {
+                            SubstitutionResult::Floundered
+                        } else {
+                            SubstitutionResult::Ambiguous(subst)
+                        }
                     }
                 }
                 AnswerResult::Floundered => SubstitutionResult::Floundered,
