@@ -102,27 +102,6 @@ impl<C: Context> Forest<C> {
                     ambiguous: answer.ambiguous,
                 })
             }
-            Err(RootSearchFail::Floundered) => {
-                if state.stack.is_empty() {
-                    if let Some(answer) = state.forest.tables[table].answer(answer_index) {
-                        debug!("floundered but still has answer {:?}", answer);
-                        let has_delayed_subgoals = C::has_delayed_subgoals(&answer.subst);
-                        if has_delayed_subgoals {
-                            return Err(RootSearchFail::InvalidAnswer);
-                        }
-                        Ok(CompleteAnswer {
-                            subst: C::canonical_constrained_subst_from_canonical_constrained_answer(
-                                &answer.subst,
-                            ),
-                            ambiguous: answer.ambiguous,
-                        })
-                    } else {
-                        Err(RootSearchFail::Floundered)
-                    }
-                } else {
-                    Err(RootSearchFail::Floundered)
-                }
-            }
             Err(err) => Err(err),
         }
     }
@@ -1322,6 +1301,8 @@ impl<'forest, C: Context + 'forest, CO: ContextOps<C> + 'forest> SolveState<'for
         }
     }
 
+    /// This strand has no subgoals left, but some have floundered.
+    /// It's still possible that we can get an ambiguous answer from it though
     fn pursue_answer_from_floundered(&mut self, strand: Strand<C>) -> Option<AnswerIndex> {
         let table = self.stack.top().table;
         let Strand {
@@ -1355,6 +1336,9 @@ impl<'forest, C: Context + 'forest, CO: ContextOps<C> + 'forest> SolveState<'for
             subst,
             ambiguous: true,
         };
+
+        // If our answer gives trivial information on the canonicalized goal then we have nothing interesting
+        // to return.
         let is_trivial_answer = self
             .context
             .is_trivial_substitution(&self.forest.tables[table].table_goal, &answer.subst);
