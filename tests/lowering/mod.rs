@@ -221,7 +221,7 @@ fn atc_accounting() {
 }
 
 #[test]
-fn check_parameter_kinds() {
+fn check_variable_kinds() {
     lowering_error! {
         program {
             struct Foo<'a> { }
@@ -471,7 +471,116 @@ fn scalars() {
         }
 
         error_msg {
-            "parse error: UnrecognizedToken { token: (8, Token(49, \"i32\"), 11), expected: [\"r#\\\"([A-Za-z]|_)([A-Za-z0-9]|_)*\\\"#\"] }"
+            "parse error: UnrecognizedToken"
+        }
+    }
+}
+
+#[test]
+fn raw_pointers() {
+    lowering_success! {
+        program {
+            trait Quux { }
+            struct Foo<T> { a: *const T }
+
+            struct Bar<T> { a: *mut T }
+
+            impl<T> Quux for Foo<*mut T> { }
+            impl<T> Quux for Bar<*const T> { }
+        }
+    }
+
+    lowering_error! {
+        program {
+            struct *const i32 { }
+        }
+        error_msg {
+            "parse error: UnrecognizedToken"
+        }
+    }
+
+    lowering_error! {
+        program {
+            trait Foo { }
+            impl Foo for *i32 { }
+        }
+        error_msg {
+            "parse error: UnrecognizedToken"
+        }
+    }
+}
+
+#[test]
+fn refs() {
+    lowering_success! {
+        program {
+            trait Foo { }
+
+            impl<'a, T> Foo for &'a T { }
+            impl<'b, T> Foo for &'b mut T { }
+        }
+    }
+
+    lowering_error! {
+        program {
+            trait Foo { }
+
+            impl<T> Foo for &T { }
+        }
+
+        error_msg {
+            "parse error: UnrecognizedToken"
+        }
+    }
+}
+
+#[test]
+fn slices() {
+    lowering_success! {
+        program {
+            trait Foo { }
+
+            impl Foo for [i32] { }
+            impl<T> Foo for [T] { }
+
+            impl Foo for [[i32]] { }
+            impl Foo for [()] { }
+        }
+    }
+
+    lowering_error! {
+        program {
+            trait Foo { }
+            impl Foo for [] {}
+        }
+
+        error_msg {
+            "parse error: UnrecognizedToken"
+        }
+    }
+}
+
+#[test]
+fn fn_defs() {
+    lowering_success! {
+        program {
+            trait Quux { }
+
+            fn foo<'a, T>(bar: T, baz: &'a mut T) -> u32
+                where T: Quux;
+        }
+    }
+
+    lowering_error! {
+        program {
+            trait Quux { }
+
+            fn foo<T>(bar: TT) -> T
+                where T: Quux;
+        }
+
+        error_msg {
+            "invalid type name `TT`"
         }
     }
 }

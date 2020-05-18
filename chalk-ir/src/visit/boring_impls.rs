@@ -5,10 +5,10 @@
 //! The more interesting impls of `Visit` remain in the `visit` module.
 
 use crate::{
-    AssocTypeId, ClausePriority, DebruijnIndex, FloatTy, Goals, ImplId, IntTy, Interner,
-    OpaqueTyId, Parameter, ParameterKind, PlaceholderIndex, ProgramClause, ProgramClauseData,
-    ProgramClauses, QuantifiedWhereClauses, QuantifierKind, Scalar, StructId, Substitution,
-    SuperVisit, TraitId, UintTy, UniverseIndex, Visit, VisitResult, Visitor,
+    AdtId, AssocTypeId, ClausePriority, DebruijnIndex, FloatTy, FnDefId, GenericArg, Goals, ImplId,
+    IntTy, Interner, Mutability, OpaqueTyId, PlaceholderIndex, ProgramClause, ProgramClauseData,
+    ProgramClauses, QuantifiedWhereClauses, QuantifierKind, Scalar, Substitution, SuperVisit,
+    TraitId, UintTy, UniverseIndex, Visit, VisitResult, Visitor,
 };
 use chalk_engine::{context::Context, ExClause, FlounderedSubgoal, Literal};
 use std::{marker::PhantomData, sync::Arc};
@@ -138,7 +138,7 @@ impl<T: Visit<I>, I: Interner> Visit<I> for Option<T> {
     }
 }
 
-impl<I: Interner> Visit<I> for Parameter<I> {
+impl<I: Interner> Visit<I> for GenericArg<I> {
     fn visit_with<'i, R: VisitResult>(
         &self,
         visitor: &mut dyn Visitor<'i, I, Result = R>,
@@ -211,6 +211,7 @@ const_visit!(Scalar);
 const_visit!(UintTy);
 const_visit!(IntTy);
 const_visit!(FloatTy);
+const_visit!(Mutability);
 
 #[macro_export]
 macro_rules! id_visit {
@@ -231,10 +232,11 @@ macro_rules! id_visit {
 }
 
 id_visit!(ImplId);
-id_visit!(StructId);
+id_visit!(AdtId);
 id_visit!(TraitId);
 id_visit!(OpaqueTyId);
 id_visit!(AssocTypeId);
+id_visit!(FnDefId);
 
 impl<I: Interner> SuperVisit<I> for ProgramClause<I> {
     fn super_visit_with<'i, R: VisitResult>(
@@ -294,26 +296,6 @@ impl<I: Interner> Visit<I> for PhantomData<I> {
         I: 'i,
     {
         R::new()
-    }
-}
-
-impl<I: Interner, T, L> Visit<I> for ParameterKind<T, L>
-where
-    T: Visit<I>,
-    L: Visit<I>,
-{
-    fn visit_with<'i, R: VisitResult>(
-        &self,
-        visitor: &mut dyn Visitor<'i, I, Result = R>,
-        outer_binder: DebruijnIndex,
-    ) -> R
-    where
-        I: 'i,
-    {
-        match self {
-            ParameterKind::Ty(a) => a.visit_with(visitor, outer_binder),
-            ParameterKind::Lifetime(a) => a.visit_with(visitor, outer_binder),
-        }
     }
 }
 
