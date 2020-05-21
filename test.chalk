@@ -1,6 +1,0 @@
-#[non_enumerable]
-trait Constraint {}
-trait Trait<T> {}
-struct A<T> {}
-impl<T> Trait<T> for A<T> where T: Constraint {}
-
