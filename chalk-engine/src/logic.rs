@@ -48,12 +48,9 @@ enum SubGoalSelection {
     /// coinductive, or create a cycle.
     Selected,
 
-    /// This strand has no remaining subgoals.
-    NoRemainingSubgoals,
-
-    /// This strand has floundered. Either all the positive subgoals
-    /// have floundered or a single negative subgoal has floundered.
-    Floundered,
+    /// This strand has no remaining subgoals, but there may still be
+    /// floundered subgoals.
+    NotSelected,
 }
 
 /// This is returned `on_no_remaining_subgoals`
@@ -505,12 +502,8 @@ impl<'forest, C: Context + 'forest, CO: ContextOps<C> + 'forest> SolveState<'for
                             self.on_subgoal_selected(strand)?;
                             continue;
                         }
-                        selection @ SubGoalSelection::NoRemainingSubgoals
-                        | selection @ SubGoalSelection::Floundered => {
-                            match self.on_no_remaining_subgoals(
-                                strand,
-                                selection == SubGoalSelection::Floundered,
-                            ) {
+                        SubGoalSelection::NotSelected => {
+                            match self.on_no_remaining_subgoals(strand) {
                                 NoRemainingSubgoalsResult::RootAnswerAvailable => return Ok(()),
                                 NoRemainingSubgoalsResult::RootSearchFail(e) => return Err(e),
                                 NoRemainingSubgoalsResult::Success => {}
@@ -894,11 +887,8 @@ impl<'forest, C: Context + 'forest, CO: ContextOps<C> + 'forest> SolveState<'for
         Ok(())
     }
 
-    fn on_no_remaining_subgoals(
-        &mut self,
-        strand: Strand<C>,
-        floundered: bool,
-    ) -> NoRemainingSubgoalsResult {
+    fn on_no_remaining_subgoals(&mut self, strand: Strand<C>) -> NoRemainingSubgoalsResult {
+        let floundered = strand.ex_clause.floundered_subgoals.len() > 0;
         let possible_answer = if !floundered {
             debug!("no remaining subgoals for the table");
             self.pursue_answer(strand)
@@ -1244,14 +1234,14 @@ impl<'forest, C: Context + 'forest, CO: ContextOps<C> + 'forest> SolveState<'for
             while strand.selected_subgoal.is_none() {
                 if strand.ex_clause.subgoals.len() == 0 {
                     if strand.ex_clause.floundered_subgoals.is_empty() {
-                        return SubGoalSelection::NoRemainingSubgoals;
+                        return SubGoalSelection::NotSelected;
                     }
 
                     self.reconsider_floundered_subgoals(&mut strand.ex_clause);
 
                     if strand.ex_clause.subgoals.is_empty() {
                         assert!(!strand.ex_clause.floundered_subgoals.is_empty());
-                        return SubGoalSelection::Floundered;
+                        return SubGoalSelection::NotSelected;
                     }
 
                     continue;
@@ -1287,7 +1277,7 @@ impl<'forest, C: Context + 'forest, CO: ContextOps<C> + 'forest> SolveState<'for
             if self.forest.tables[selected_subgoal_table].is_floundered() {
                 if self.propagate_floundered_subgoal(strand) {
                     // This strand will never lead anywhere of interest.
-                    return SubGoalSelection::Floundered;
+                    return SubGoalSelection::NotSelected;
                 } else {
                     // This subgoal has floundered and has been marked.
                     // We previously would immediately mark the table as
