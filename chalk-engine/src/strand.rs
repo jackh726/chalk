@@ -1,6 +1,6 @@
 use crate::context::Context;
 use crate::table::AnswerIndex;
-use crate::{ExClause, TableIndex, TimeStamp};
+use crate::{AnswerMode, ExClause, TableIndex, TimeStamp};
 use std::fmt::{Debug, Error, Formatter};
 
 #[derive(Debug)]
@@ -11,6 +11,8 @@ pub(crate) struct CanonicalStrand<C: Context> {
     pub(crate) selected_subgoal: Option<SelectedSubgoal<C>>,
 
     pub(crate) last_pursued_time: TimeStamp,
+
+    pub(crate) answer_mode: AnswerMode,
 }
 
 pub(crate) struct Strand<C: Context> {
@@ -22,6 +24,8 @@ pub(crate) struct Strand<C: Context> {
     pub(crate) selected_subgoal: Option<SelectedSubgoal<C>>,
 
     pub(crate) last_pursued_time: TimeStamp,
+
+    pub(crate) answer_mode: AnswerMode,
 }
 
 #[derive(Clone, Debug)]

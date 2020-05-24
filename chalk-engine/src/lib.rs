@@ -277,3 +277,10 @@ impl Minimums {
         min(self.positive, self.negative)
     }
 }
+
+#[derive(Copy, Clone, Debug)]
+pub(crate) enum AnswerMode {
+    Complete,
+    Ambiguous,
+    Done,
+}

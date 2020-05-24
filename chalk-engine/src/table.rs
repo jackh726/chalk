@@ -1,11 +1,12 @@
 use crate::context::Context;
 use crate::strand::CanonicalStrand;
-use crate::Answer;
+use crate::{Answer, AnswerMode};
 use rustc_hash::FxHashMap;
 use std::collections::hash_map::Entry;
 use std::collections::VecDeque;
 use std::mem;
 
+#[derive(Debug)]
 pub(crate) struct Table<C: Context> {
     /// The goal this table is trying to solve (also the key to look
     /// it up).
@@ -38,6 +39,8 @@ pub(crate) struct Table<C: Context> {
     /// Stores the active strands that we can "pull on" to find more
     /// answers.
     strands: VecDeque<CanonicalStrand<C>>,
+
+    pub(crate) answer_mode: AnswerMode,
 }
 
 index_struct! {
@@ -58,6 +61,7 @@ impl<C: Context> Table<C> {
             floundered: false,
             answers_hash: FxHashMap::default(),
             strands: VecDeque::new(),
+            answer_mode: AnswerMode::Complete,
         }
     }
 
@@ -76,6 +80,16 @@ impl<C: Context> Table<C> {
 
     pub(crate) fn take_strands(&mut self) -> VecDeque<CanonicalStrand<C>> {
         mem::replace(&mut self.strands, VecDeque::new())
+    }
+
+    pub(crate) fn drain_strands(
+        &mut self,
+        test: impl Fn(&CanonicalStrand<C>) -> bool
+    ) -> VecDeque<CanonicalStrand<C>> {
+        let old = mem::replace(&mut self.strands, VecDeque::new());
+        let (test_in, test_out): (VecDeque<CanonicalStrand<C>>, VecDeque<CanonicalStrand<C>>)  = old.into_iter().partition(test);
+        let _ = mem::replace(&mut self.strands, test_out);
+        test_in
     }
 
     /// Remove the next strand from the queue as long as it meets the
