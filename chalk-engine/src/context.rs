@@ -251,6 +251,11 @@ pub trait ContextOps<C: Context>: Sized + Clone + Debug + AggregateOps<C> {
     /// Upcast this domain goal into a more general goal.
     fn into_goal(&self, domain_goal: C::DomainGoal) -> C::Goal;
 
+    fn is_trivial_constrained_substitution(
+        &self,
+        constrained_subst: &C::CanonicalConstrainedSubst,
+    ) -> bool;
+
     fn is_trivial_substitution(
         &self,
         u_canon: &C::UCanonicalGoalInEnvironment,

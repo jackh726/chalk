@@ -274,6 +274,14 @@ impl<'me, I: Interner> context::ContextOps<SlgContext<I>> for SlgContextOps<'me,
         domain_goal.cast(self.program.interner())
     }
 
+    fn is_trivial_constrained_substitution(
+        &self,
+        constrained_subst: &Canonical<ConstrainedSubst<I>>,
+    ) -> bool {
+        let interner = self.interner();
+        constrained_subst.value.subst.is_identity_subst(interner)
+    }
+
     fn is_trivial_substitution(
         &self,
         u_canon: &UCanonical<InEnvironment<Goal<I>>>,
