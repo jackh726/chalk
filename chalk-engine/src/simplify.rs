@@ -74,6 +74,7 @@ impl<C: Context> Forest<C> {
                         )));
                 }
                 HhGoal::CannotProve => {
+                    debug!("Marking Strand as ambiguous because of a `CannotProve` subgoal");
                     ex_clause.ambiguous = true;
                 }
             }
