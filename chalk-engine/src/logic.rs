@@ -396,7 +396,7 @@ impl<I: Interner, C: Context<I>> Forest<I, C> {
 pub(crate) struct SolveState<'forest, I: Interner, C: Context<I>, CO: ContextOps<I, C>> {
     forest: &'forest mut Forest<I, C>,
     context: &'forest CO,
-    stack: Stack<I, C>,
+    stack: Stack<I>,
 }
 
 impl<'forest, I: Interner, C: Context<I> + 'forest, CO: ContextOps<I, C> + 'forest> Drop
@@ -406,9 +406,7 @@ impl<'forest, I: Interner, C: Context<I> + 'forest, CO: ContextOps<I, C> + 'fore
         if !self.stack.is_empty() {
             if let Some(active_strand) = self.stack.top().active_strand.take() {
                 let table = self.stack.top().table;
-                let canonical_active_strand =
-                    Forest::canonicalize_strand(self.context, active_strand);
-                self.forest.tables[table].enqueue_strand(canonical_active_strand);
+                self.forest.tables[table].enqueue_strand(active_strand);
             }
             self.unwind_stack();
         }
@@ -472,28 +470,26 @@ impl<'forest, I: Interner, C: Context<I> + 'forest, CO: ContextOps<I, C> + 'fore
             let next_strand = self.stack.top().active_strand.take().or_else(|| {
                 self.forest.tables[table]
                     .dequeue_next_strand_if(|strand| strand.last_pursued_time < clock)
-                    .map(|canonical_strand| {
-                        let num_universes = self.forest.tables[table].table_goal.universes;
-                        let CanonicalStrand {
-                            canonical_ex_clause,
-                            selected_subgoal,
-                            last_pursued_time,
-                        } = canonical_strand;
-                        let (infer, ex_clause) = self
-                            .context
-                            .instantiate_ex_clause(num_universes, &canonical_ex_clause);
-                        let strand = Strand {
-                            infer,
-                            ex_clause,
-                            selected_subgoal: selected_subgoal.clone(),
-                            last_pursued_time,
-                        };
-                        strand
-                    })
             });
             match next_strand {
-                Some(mut strand) => {
-                    debug!("next strand: {:#?}", strand);
+                Some(canonical_strand) => {
+                    debug!("next strand: {:#?}", canonical_strand);
+
+                    let num_universes = self.forest.tables[table].table_goal.universes;
+                    let CanonicalStrand {
+                        canonical_ex_clause,
+                        selected_subgoal,
+                        last_pursued_time,
+                    } = canonical_strand;
+                    let (infer, ex_clause) = self
+                        .context
+                        .instantiate_ex_clause(num_universes, &canonical_ex_clause);
+                    let mut strand = Strand {
+                        infer,
+                        ex_clause,
+                        selected_subgoal: selected_subgoal.clone(),
+                        last_pursued_time,
+                    };
 
                     strand.last_pursued_time = clock;
                     match self.select_subgoal(&mut strand) {
@@ -730,7 +726,10 @@ impl<'forest, I: Interner, C: Context<I> + 'forest, CO: ContextOps<I, C> + 'fore
 
     /// This is called if the selected subgoal for a `Strand` is
     /// a coinductive cycle.
-    fn on_coinductive_subgoal(&mut self, mut strand: Strand<I, C>) -> Result<(), RootSearchFail> {
+    fn on_coinductive_subgoal(
+        &mut self,
+        mut strand: CanonicalStrand<I>,
+    ) -> Result<(), RootSearchFail> {
         // This is a co-inductive cycle. That is, this table
         // appears somewhere higher on the stack, and has now
         // recursively requested an answer for itself. This
@@ -740,7 +739,8 @@ impl<'forest, I: Interner, C: Context<I> + 'forest, CO: ContextOps<I, C> + 'fore
         // This subgoal selection for the strand is finished, so take it
         let selected_subgoal = strand.selected_subgoal.take().unwrap();
         match strand
-            .ex_clause
+            .canonical_ex_clause
+            .value
             .subgoals
             .remove(selected_subgoal.subgoal_index)
         {
@@ -752,7 +752,11 @@ impl<'forest, I: Interner, C: Context<I> + 'forest, CO: ContextOps<I, C> + 'fore
                         && self.forest.tables[selected_subgoal.subgoal_table].coinductive_goal
                 );
 
-                strand.ex_clause.delayed_subgoals.push(subgoal);
+                strand
+                    .canonical_ex_clause
+                    .value
+                    .delayed_subgoals
+                    .push(subgoal);
 
                 self.stack.top().active_strand = Some(strand);
                 return Ok(());
@@ -774,13 +778,13 @@ impl<'forest, I: Interner, C: Context<I> + 'forest, CO: ContextOps<I, C> + 'fore
     /// * `minimums` is the collected minimum clock times
     fn on_positive_cycle(
         &mut self,
-        strand: Strand<I, C>,
+        strand: CanonicalStrand<I>,
         minimums: Minimums,
     ) -> Result<(), RootSearchFail> {
         // We can't take this because we might need it later to clear the cycle
         let selected_subgoal = strand.selected_subgoal.as_ref().unwrap();
 
-        match strand.ex_clause.subgoals[selected_subgoal.subgoal_index] {
+        match strand.canonical_ex_clause.value.subgoals[selected_subgoal.subgoal_index] {
             Literal::Positive(_) => {
                 self.stack.top().cyclic_minimums.take_minimums(&minimums);
             }
@@ -806,8 +810,7 @@ impl<'forest, I: Interner, C: Context<I> + 'forest, CO: ContextOps<I, C> + 'fore
         // We also can't mark these and return early from this
         // because the stack above us might change.
         let table = self.stack.top().table;
-        let canonical_strand = Forest::canonicalize_strand(self.context, strand);
-        self.forest.tables[table].enqueue_strand(canonical_strand);
+        self.forest.tables[table].enqueue_strand(strand);
 
         // The strand isn't active, but the table is, so just continue
         Ok(())
@@ -852,11 +855,14 @@ impl<'forest, I: Interner, C: Context<I> + 'forest, CO: ContextOps<I, C> + 'fore
                 }
                 Ok(_) => {
                     debug!("merged answer into current strand");
-                    self.stack.top().active_strand = Some(strand);
+                    let canonical_strand = Forest::canonicalize_strand(self.context, strand);
+                    self.stack.top().active_strand = Some(canonical_strand);
                     return Ok(());
                 }
             }
         }
+
+        let canonical_strand = Forest::canonicalize_strand(self.context, strand);
 
         // If no tabled answer is present, we ought to be requesting
         // the next available index.
@@ -876,16 +882,16 @@ impl<'forest, I: Interner, C: Context<I> + 'forest, CO: ContextOps<I, C> + 'fore
 
             if self.top_of_stack_is_coinductive_from(cyclic_depth) {
                 debug!("table is coinductive");
-                return self.on_coinductive_subgoal(strand);
+                return self.on_coinductive_subgoal(canonical_strand);
             }
 
             debug!("table encountered a positive cycle");
-            return self.on_positive_cycle(strand, minimums);
+            return self.on_positive_cycle(canonical_strand, minimums);
         }
 
         // We don't know anything about the selected subgoal table.
         // Set this strand as active and push it onto the stack.
-        self.stack.top().active_strand = Some(strand);
+        self.stack.top().active_strand = Some(canonical_strand);
 
         let cyclic_minimums = Minimums::MAX;
         self.stack.push(
@@ -908,7 +914,24 @@ impl<'forest, I: Interner, C: Context<I> + 'forest, CO: ContextOps<I, C> + 'fore
                 // subgoal for another strand, or was the root table.
                 let table = self.stack.top().table;
                 let mut caller_strand = match self.stack.pop_and_take_caller_strand() {
-                    Some(s) => s,
+                    Some(canonical_strand) => {
+                        let num_universes = self.forest.tables[table].table_goal.universes;
+                        let CanonicalStrand {
+                            canonical_ex_clause,
+                            selected_subgoal,
+                            last_pursued_time,
+                        } = canonical_strand;
+                        let (infer, ex_clause) = self
+                            .context
+                            .instantiate_ex_clause(num_universes, &canonical_ex_clause);
+                        let strand = Strand {
+                            infer,
+                            ex_clause,
+                            selected_subgoal: selected_subgoal.clone(),
+                            last_pursued_time,
+                        };
+                        strand
+                    }
                     None => {
                         // That was the root table, so we are done --
                         // *well*, unless there were delayed
@@ -936,7 +959,9 @@ impl<'forest, I: Interner, C: Context<I> + 'forest, CO: ContextOps<I, C> + 'fore
                         return NoRemainingSubgoalsResult::RootSearchFail(e);
                     }
                     Ok(_) => {
-                        self.stack.top().active_strand = Some(caller_strand);
+                        let canonical_strand =
+                            Forest::canonicalize_strand(self.context, caller_strand);
+                        self.stack.top().active_strand = Some(canonical_strand);
                         return NoRemainingSubgoalsResult::Success;
                     }
                 }
@@ -1022,7 +1047,24 @@ impl<'forest, I: Interner, C: Context<I> + 'forest, CO: ContextOps<I, C> + 'fore
             self.forest.tables[table].mark_floundered();
 
             let mut strand = match self.stack.pop_and_take_caller_strand() {
-                Some(s) => s,
+                Some(canonical_strand) => {
+                    let num_universes = self.forest.tables[table].table_goal.universes;
+                    let CanonicalStrand {
+                        canonical_ex_clause,
+                        selected_subgoal,
+                        last_pursued_time,
+                    } = canonical_strand;
+                    let (infer, ex_clause) = self
+                        .context
+                        .instantiate_ex_clause(num_universes, &canonical_ex_clause);
+                    let strand = Strand {
+                        infer,
+                        ex_clause,
+                        selected_subgoal: selected_subgoal.clone(),
+                        last_pursued_time,
+                    };
+                    strand
+                }
                 None => {
                     // That was the root table, so we are done.
                     return RootSearchFail::Floundered;
@@ -1071,7 +1113,9 @@ impl<'forest, I: Interner, C: Context<I> + 'forest, CO: ContextOps<I, C> + 'fore
 
             // This subgoal selection for the strand is finished, so take it
             let caller_selected_subgoal = caller_strand.selected_subgoal.take().unwrap();
-            return match caller_strand.ex_clause.subgoals[caller_selected_subgoal.subgoal_index] {
+            return match caller_strand.canonical_ex_clause.value.subgoals
+                [caller_selected_subgoal.subgoal_index]
+            {
                 // T' wanted an answer from T, but none is
                 // forthcoming.  Therefore, the active strand from T'
                 // has failed and can be discarded.
@@ -1090,7 +1134,8 @@ impl<'forest, I: Interner, C: Context<I> + 'forest, CO: ContextOps<I, C> + 'fore
                     // is what we want, so can remove this subgoal and
                     // keep going.
                     caller_strand
-                        .ex_clause
+                        .canonical_ex_clause
+                        .value
                         .subgoals
                         .remove(caller_selected_subgoal.subgoal_index);
 
@@ -1137,7 +1182,9 @@ impl<'forest, I: Interner, C: Context<I> + 'forest, CO: ContextOps<I, C> + 'fore
 
             // We can't take this because we might need it later to clear the cycle
             let caller_selected_subgoal = caller_strand.selected_subgoal.as_ref().unwrap();
-            match caller_strand.ex_clause.subgoals[caller_selected_subgoal.subgoal_index] {
+            match caller_strand.canonical_ex_clause.value.subgoals
+                [caller_selected_subgoal.subgoal_index]
+            {
                 Literal::Positive(_) => {
                     self.stack
                         .top()
@@ -1161,8 +1208,7 @@ impl<'forest, I: Interner, C: Context<I> + 'forest, CO: ContextOps<I, C> + 'fore
             // We can't pursue this strand anymore, so push it back onto the table
             let active_strand = self.stack.top().active_strand.take().unwrap();
             let table = self.stack.top().table;
-            let canonical_active_strand = Forest::canonicalize_strand(self.context, active_strand);
-            self.forest.tables[table].enqueue_strand(canonical_active_strand);
+            self.forest.tables[table].enqueue_strand(active_strand);
 
             // The strand isn't active, but the table is, so just continue
             return Ok(());
@@ -1176,9 +1222,7 @@ impl<'forest, I: Interner, C: Context<I> + 'forest, CO: ContextOps<I, C> + 'fore
             match self.stack.pop_and_take_caller_strand() {
                 Some(active_strand) => {
                     let table = self.stack.top().table;
-                    let canonical_active_strand =
-                        Forest::canonicalize_strand(self.context, active_strand);
-                    self.forest.tables[table].enqueue_strand(canonical_active_strand);
+                    self.forest.tables[table].enqueue_strand(active_strand);
                 }
 
                 None => return,
