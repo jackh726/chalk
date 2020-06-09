@@ -62,6 +62,13 @@ use interner::{HasInterner, Interner};
 pub mod could_match;
 pub mod debug;
 
+#[derive(Copy, Clone, PartialEq, Eq, Hash)]
+pub enum Variance {
+    Covariant,
+    Invariant,
+    Contravariant,
+}
+
 #[derive(Clone, PartialEq, Eq, Hash, Fold, Visit, HasInterner)]
 /// The set of assumptions we've made so far, and the current number of
 /// universal (forall) quantifiers we're within.

@@ -20,7 +20,7 @@ use chalk_ir::{
     Binders, Canonical, ClausePriority, ConstrainedSubst, Constraint, DomainGoal, Environment,
     Fallible, Floundered, GenericArg, Goal, GoalData, InEnvironment, NoSolution, ProgramClause,
     ProgramClauseData, ProgramClauseImplication, Substitution, UCanonical, UniverseMap,
-    VariableKinds,
+    VariableKinds, Variance,
 };
 use rustc_hash::FxHashMap;
 use std::fmt::Debug;
@@ -111,7 +111,9 @@ impl<I: Interner> RecursiveInferenceTable<I> for RecursiveInferenceTableImpl<I> 
     where
         T: ?Sized + Zip<I>,
     {
-        let res = self.infer.unify(interner, environment, a, b)?;
+        let res = self
+            .infer
+            .unify(interner, environment, Variance::Invariant, a, b)?;
         Ok((res.goals, res.constraints))
     }
 
