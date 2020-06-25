@@ -933,7 +933,7 @@ impl PlaceholderIndex {
 }
 
 // Fold derive intentionally omitted, folded through Ty
-#[derive(Clone, PartialEq, Eq, Hash, Fold, Visit, HasInterner, Zip)]
+#[derive(Clone, PartialEq, Eq, Hash, Fold, Visit, HasInterner)]
 pub struct ApplicationTy<I: Interner> {
     pub name: TypeName<I>,
     pub substitution: Substitution<I>,
@@ -1153,19 +1153,19 @@ impl<I: Interner> AliasTy<I> {
     }
 }
 
-#[derive(Clone, PartialEq, Eq, Hash, Fold, Visit, HasInterner, Zip)]
+#[derive(Clone, PartialEq, Eq, Hash, Fold, Visit, HasInterner)]
 pub struct ProjectionTy<I: Interner> {
     pub associated_ty_id: AssocTypeId<I>,
     pub substitution: Substitution<I>,
 }
 
-#[derive(Clone, PartialEq, Eq, Hash, Fold, Visit, HasInterner, Zip)]
+#[derive(Clone, PartialEq, Eq, Hash, Fold, Visit, HasInterner)]
 pub struct OpaqueTy<I: Interner> {
     pub opaque_ty_id: OpaqueTyId<I>,
     pub substitution: Substitution<I>,
 }
 
-#[derive(Clone, PartialEq, Eq, Hash, Fold, Visit, HasInterner, Zip)]
+#[derive(Clone, PartialEq, Eq, Hash, Fold, Visit, HasInterner)]
 pub struct TraitRef<I: Interner> {
     pub trait_id: TraitId<I>,
     pub substitution: Substitution<I>,
