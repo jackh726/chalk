@@ -55,7 +55,7 @@ impl<I: Interner> context::ResolventOps<I, SlgContext<I>> for TruncatingInferenc
     ///
     /// - `goal` is the goal G that we are trying to solve
     /// - `clause` is the program clause that may be useful to that end
-    #[instrument(level = "debug", skip(self, interner, environment, subst))]
+    #[instrument(level = "debug", skip(self, db, interner, environment, subst))]
     fn resolvent_clause(
         &mut self,
         db: &dyn UnificationDatabase<I>,

@@ -526,7 +526,7 @@ fn push_program_clauses_for_associated_type_values_in_impls_of<I: Interner>(
 /// earlier parts of the logic should "flounder" in that case.
 fn match_ty<I: Interner>(
     builder: &mut ClauseBuilder<'_, I>,
-    environment: &Environment<I>,
+    _environment: &Environment<I>,
     ty: &Ty<I>,
 ) -> Result<(), Floundered> {
     let interner = builder.interner();
@@ -543,15 +543,8 @@ fn match_ty<I: Interner>(
             .db
             .opaque_ty_data(opaque_ty.opaque_ty_id)
             .to_program_clauses(builder),
-        TyData::Function(quantified_ty) => {
+        TyData::Function(_quantified_ty) => {
             builder.push_fact(WellFormed::Ty(ty.clone()));
-            quantified_ty
-                .substitution
-                .0
-                .iter(interner)
-                .map(|p| p.assert_ty_ref(interner))
-                .map(|ty| match_ty(builder, environment, &ty))
-                .collect::<Result<_, Floundered>>()?;
         }
         TyData::BoundVar(_) | TyData::InferenceVar(_, _) => return Err(Floundered),
         TyData::Dyn(_) => {}

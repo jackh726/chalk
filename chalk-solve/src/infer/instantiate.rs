@@ -65,12 +65,14 @@ impl<I: Interner> InferenceTable<I> {
     pub(crate) fn instantiate_binders_existentially<'a, T>(
         &mut self,
         interner: &'a I,
-        arg: impl IntoBindersAndValue<'a, I, Value = T>,
+        arg: impl IntoBindersAndValue<'a, I, Value = T> + Debug,
     ) -> T::Result
     where
         T: Fold<I>,
     {
+        dbg!(&arg);
         let (binders, value) = arg.into_binders_and_value(interner);
+        dbg!(&binders, &value);
         let max_universe = self.max_universe;
         self.instantiate_in(interner, max_universe, binders, &value)
     }
@@ -107,13 +109,13 @@ impl<I: Interner> InferenceTable<I> {
 }
 
 pub(crate) trait IntoBindersAndValue<'a, I: Interner> {
-    type Binders: IntoIterator<Item = VariableKind<I>>;
-    type Value;
+    type Binders: IntoIterator<Item = VariableKind<I>> + Debug;
+    type Value: Debug;
 
     fn into_binders_and_value(self, interner: &'a I) -> (Self::Binders, Self::Value);
 }
 
-impl<'a, I, T> IntoBindersAndValue<'a, I> for &'a Binders<T>
+impl<'a, I, T: Debug> IntoBindersAndValue<'a, I> for &'a Binders<T>
 where
     I: Interner,
     T: HasInterner<Interner = I>,
@@ -144,7 +146,7 @@ fn make_lifetime<I: Interner>(_: usize) -> VariableKind<I> {
     VariableKind::Lifetime
 }
 
-impl<'a, T, I: Interner> IntoBindersAndValue<'a, I> for (&'a Vec<VariableKind<I>>, &'a T) {
+impl<'a, T: Debug, I: Interner> IntoBindersAndValue<'a, I> for (&'a Vec<VariableKind<I>>, &'a T) {
     type Binders = std::iter::Cloned<std::slice::Iter<'a, VariableKind<I>>>;
     type Value = &'a T;
 
