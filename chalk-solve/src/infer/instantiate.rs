@@ -18,8 +18,14 @@ impl<I: Interner> InferenceTable<I> {
         Substitution::from_iter(
             interner,
             binders.iter().map(|kind| {
-                let param_infer_var = kind.map_ref(|&ui| self.new_variable(ui));
-                param_infer_var.to_generic_arg(interner)
+                match kind {
+                    CanonicalVarKind::Ty(kind, ui) => self.new_variable(*ui).to_ty_with_kind(interner, *kind).cast(interner),
+                    CanonicalVarKind::Lifetime(ui) => self.new_variable(*ui).to_lifetime(interner).cast(interner),
+                    CanonicalVarKind::Const(ty, ui) => self.new_variable(*ui).to_const(interner, ty.clone()).cast(interner),
+                    CanonicalVarKind::PlaceholderTy(..) => todo!(),
+                    CanonicalVarKind::PlaceholderLifetime(..) => todo!(),
+                    CanonicalVarKind::PlaceholderConst(..) => todo!(),
+                }
             }),
         )
     }
@@ -33,30 +39,6 @@ impl<I: Interner> InferenceTable<I> {
         subst.apply(&bound.value, interner)
     }
 
-    /// Instantiates `arg` with fresh existential variables in the
-    /// given universe; the kinds of the variables are implied by
-    /// `binders`. This is used to apply a universally quantified
-    /// clause like `forall X, 'Y. P => Q`. Here the `binders`
-    /// argument is referring to `X, 'Y`.
-    pub(crate) fn instantiate_in<U, T>(
-        &mut self,
-        interner: &I,
-        universe: UniverseIndex,
-        binders: U,
-        arg: &T,
-    ) -> T::Result
-    where
-        T: Fold<I>,
-        U: IntoIterator<Item = VariableKind<I>>,
-    {
-        let binders: Vec<_> = binders
-            .into_iter()
-            .map(|pk| CanonicalVarKind::new(pk, universe))
-            .collect();
-        let subst = self.fresh_subst(interner, &binders);
-        subst.apply(&arg, interner)
-    }
-
     /// Variant on `instantiate_in` that takes a `Binders<T>`.
     pub fn instantiate_binders_existentially<'a, T>(
         &mut self,
@@ -68,7 +50,23 @@ impl<I: Interner> InferenceTable<I> {
     {
         let (binders, value) = arg.into_binders_and_value(interner);
         let max_universe = self.max_universe;
-        self.instantiate_in(interner, max_universe, binders, &value)
+
+        // Instantiates `arg` with fresh existential variables in the
+        // given universe; the kinds of the variables are implied by
+        // `binders`. This is used to apply a universally quantified
+        // clause like `forall X, 'Y. P => Q`. Here the `binders`
+        // argument is referring to `X, 'Y`.        
+        let binders: Vec<_> = binders
+            .into_iter()
+            .map(|pk| match pk {
+                VariableKind::Ty(ty) => CanonicalVarKind::Ty(ty, max_universe),
+                VariableKind::Lifetime => CanonicalVarKind::Lifetime(max_universe),
+                VariableKind::Const(ty) => CanonicalVarKind::Const(ty, max_universe),
+
+            })
+            .collect();
+        let subst = self.fresh_subst(interner, &binders);
+        subst.apply(&value, interner)
     }
 
     pub fn instantiate_binders_universally<'a, T>(
