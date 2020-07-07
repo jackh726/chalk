@@ -17,17 +17,34 @@ impl<I: Interner> InferenceTable<I> {
     ) -> Substitution<I> {
         Substitution::from_iter(
             interner,
-            binders.iter().map(|kind| {
-                match kind {
-                    CanonicalVarKind::Ty(kind, ui) => self.new_variable(*ui).to_ty_with_kind(interner, *kind).cast(interner),
-                    CanonicalVarKind::Lifetime(ui) => self.new_variable(*ui).to_lifetime(interner).cast(interner),
-                    CanonicalVarKind::Const(ty, ui) => self.new_variable(*ui).to_const(interner, ty.clone()).cast(interner),
-                    CanonicalVarKind::PlaceholderTy(..) => todo!(),
-                    CanonicalVarKind::PlaceholderLifetime(..) => todo!(),
-                    CanonicalVarKind::PlaceholderConst(..) => todo!(),
-                }
-            }),
+            binders.iter().map(|kind| self.instantiate_kind(interner, kind)),
         )
+    }
+
+    fn instantiate_kind(&mut self, interner: &I, kind: &CanonicalVarKind<I>) -> GenericArg<I> {
+        match kind {
+            CanonicalVarKind::Ty(ty_kind, ui) => {
+                self.new_variable(*ui).to_ty_with_kind(interner, *ty_kind).cast(interner)
+            }
+            CanonicalVarKind::PlaceholderTy(placeholder) => {
+                TyData::Placeholder(*placeholder).intern(interner).cast(interner)
+            }
+            CanonicalVarKind::Lifetime(ui) => {
+                self.new_variable(*ui).to_lifetime(interner).cast(interner)
+            }
+            CanonicalVarKind::PlaceholderLifetime(placeholder) => {
+                LifetimeData::Placeholder(*placeholder).intern(interner).cast(interner)
+            }
+            CanonicalVarKind::Const(ty, ui) => {
+                self.new_variable(*ui).to_const(interner, ty.clone()).cast(interner)
+            }
+            CanonicalVarKind::PlaceholderConst(ty, placeholder) => {
+                ConstData {
+                    ty: ty.clone(),
+                    value: ConstValue::Placeholder(*placeholder),
+                }.intern(interner).cast(interner)
+            }
+        }
     }
 
     /// Variant on `instantiate` that takes a `Canonical<T>`.
