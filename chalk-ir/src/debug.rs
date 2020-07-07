@@ -754,6 +754,13 @@ impl<I: Interner> Debug for Environment<I> {
     }
 }
 
+impl<I: Interner> Debug for CanonicalVarKind<I> {
+    fn fmt(&self, fmt: &mut Formatter<'_>) -> Result<(), Error> {
+        // XXX
+        write!(fmt, "CanonicalVarKind")
+    }
+}
+
 impl<I: Interner> Debug for CanonicalVarKinds<I> {
     fn fmt(&self, fmt: &mut Formatter<'_>) -> Result<(), Error> {
         I::debug_canonical_var_kinds(self, fmt)
@@ -797,7 +804,7 @@ impl<'a, T: HasInterner + Display> Display for CanonicalDisplay<'a, T> {
                 if i > 0 {
                     write!(f, ",")?;
                 }
-                write!(f, "?{}", pk.skip_kind())?;
+                write!(f, "?{}", pk.universe())?;
             }
 
             write!(f, "> {{ {} }}", value)?;

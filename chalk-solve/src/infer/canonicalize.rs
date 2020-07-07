@@ -86,7 +86,15 @@ impl<'q, I: Interner> Canonicalizer<'q, I> {
             interner,
             free_vars
                 .into_iter()
-                .map(|p_v| p_v.map(|v| table.universe_of_unbound_var(v))),
+                .map(|p_v| p_v.map(|v| table.universe_of_unbound_var(v)))
+                .map(|p_v| {
+                    let universe = *p_v.skip_kind();
+                    match p_v.kind {
+                        VariableKind::Ty(ty_kind) => CanonicalVarKind::Ty(ty_kind, universe),
+                        VariableKind::Lifetime => CanonicalVarKind::Lifetime(universe),
+                        VariableKind::Const(ty) => CanonicalVarKind::Const(ty, universe),
+                    }
+                }),
         )
     }
 

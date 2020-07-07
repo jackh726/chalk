@@ -1319,9 +1319,45 @@ impl<I: Interner, T> WithKind<I, T> {
     }
 }
 
-/// A variable kind with universe index.
-#[allow(type_alias_bounds)]
-pub type CanonicalVarKind<I: Interner> = WithKind<I, UniverseIndex>;
+/// A canonicalized variable.
+#[derive(Clone, PartialEq, Eq, Hash, HasInterner)]
+pub enum CanonicalVarKind<I: Interner> {
+    /// Some kind of type inference variable.
+    Ty(TyKind, UniverseIndex),
+
+    /// A "placeholder" that represents "any type".
+    PlaceholderTy(PlaceholderIndex),
+
+    /// Region variable `'?R`.
+    Lifetime(UniverseIndex),
+
+    /// A "placeholder" that represents "any region". Created when you
+    /// are solving a goal like `for<'a> T: Foo<'a>` to represent the
+    /// bound region `'a`.
+    PlaceholderLifetime(PlaceholderIndex),
+
+    /// Some kind of const inference variable.
+    Const(Ty<I>, UniverseIndex),
+
+    /// A "placeholder" that represents "any const".
+    PlaceholderConst(Ty<I>, PlaceholderIndex),
+}
+
+impl<I: Interner> CanonicalVarKind<I> {
+    /// Gets the universe.
+    pub fn universe(&self) -> UniverseIndex {
+        match self {
+            CanonicalVarKind::Ty(_, ui) => *ui,
+            CanonicalVarKind::PlaceholderTy(placeholder) => placeholder.ui,
+            CanonicalVarKind::Lifetime(ui) => *ui,
+            CanonicalVarKind::PlaceholderLifetime(placeholder) => placeholder.ui,
+            CanonicalVarKind::Const(_, ui) => *ui,
+            CanonicalVarKind::PlaceholderConst(_, placeholder) => placeholder.ui,
+        }
+    }
+}
+
+impl<I: Interner> Copy for CanonicalVarKind<I> where Ty<I>: Copy {}
 
 /// An alias, which is a trait indirection such as a projection or opaque type.
 #[derive(Clone, PartialEq, Eq, Hash, Fold, Visit, HasInterner, Zip)]
@@ -2140,16 +2176,18 @@ impl<T: HasInterner> UCanonical<T> {
                 .enumerate()
                 .map(|(index, pk)| {
                     let bound_var = BoundVar::new(DebruijnIndex::INNERMOST, index);
-                    match &pk.kind {
-                        VariableKind::Ty(_) => {
+                    match &pk {
+                        CanonicalVarKind::Ty(_, _) => {
                             GenericArgData::Ty(TyData::BoundVar(bound_var).intern(interner))
                                 .intern(interner)
                         }
-                        VariableKind::Lifetime => GenericArgData::Lifetime(
+                        CanonicalVarKind::PlaceholderTy(_) => todo!(),
+                        CanonicalVarKind::Lifetime(_) => GenericArgData::Lifetime(
                             LifetimeData::BoundVar(bound_var).intern(interner),
                         )
                         .intern(interner),
-                        VariableKind::Const(ty) => GenericArgData::Const(
+                        CanonicalVarKind::PlaceholderLifetime(_) => todo!(),
+                        CanonicalVarKind::Const(ty, _) => GenericArgData::Const(
                             ConstData {
                                 ty: ty.clone(),
                                 value: ConstValue::BoundVar(bound_var),
@@ -2157,6 +2195,7 @@ impl<T: HasInterner> UCanonical<T> {
                             .intern(interner),
                         )
                         .intern(interner),
+                        CanonicalVarKind::PlaceholderConst(_, _) => todo!(),
                     }
                 })
                 .collect::<Vec<_>>(),
