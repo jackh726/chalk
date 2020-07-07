@@ -2181,12 +2181,16 @@ impl<T: HasInterner> UCanonical<T> {
                             GenericArgData::Ty(TyData::BoundVar(bound_var).intern(interner))
                                 .intern(interner)
                         }
-                        CanonicalVarKind::PlaceholderTy(_) => todo!(),
+                        CanonicalVarKind::PlaceholderTy(_) => {
+                            TyData::Placeholder(PlaceholderIndex { ui: UniverseIndex::ROOT, idx: 0 }).intern(interner).cast(interner)
+                        }
                         CanonicalVarKind::Lifetime(_) => GenericArgData::Lifetime(
                             LifetimeData::BoundVar(bound_var).intern(interner),
                         )
                         .intern(interner),
-                        CanonicalVarKind::PlaceholderLifetime(_) => todo!(),
+                        CanonicalVarKind::PlaceholderLifetime(_) => {
+                            LifetimeData::Placeholder(PlaceholderIndex { ui: UniverseIndex::ROOT, idx: 0 }).intern(interner).cast(interner)
+                        },
                         CanonicalVarKind::Const(ty, _) => GenericArgData::Const(
                             ConstData {
                                 ty: ty.clone(),
@@ -2195,7 +2199,14 @@ impl<T: HasInterner> UCanonical<T> {
                             .intern(interner),
                         )
                         .intern(interner),
-                        CanonicalVarKind::PlaceholderConst(_, _) => todo!(),
+                        CanonicalVarKind::PlaceholderConst(ty, _) => {
+                            ConstData {
+                                ty: ty.clone(),
+                                value: ConstValue::Placeholder(PlaceholderIndex { ui: UniverseIndex::ROOT, idx: 0 }),
+                            }
+                            .intern(interner)
+                            .cast(interner)
+                        },
                     }
                 })
                 .collect::<Vec<_>>(),
