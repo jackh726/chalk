@@ -1,4 +1,5 @@
 use crate::debug_span;
+use chalk_ir::cast::Cast;
 use chalk_ir::fold::shift::Shift;
 use chalk_ir::fold::{Fold, Folder};
 use chalk_ir::interner::{HasInterner, Interner};
@@ -6,7 +7,7 @@ use chalk_ir::*;
 use std::cmp::max;
 use tracing::{debug, instrument};
 
-use super::{InferenceTable, ParameterEnaVariable};
+use super::InferenceTable;
 
 impl<I: Interner> InferenceTable<I> {
     /// Given a value `value` with variables in it, replaces those variables
@@ -36,18 +37,17 @@ impl<I: Interner> InferenceTable<I> {
         let mut q = Canonicalizer {
             table: self,
             free_vars: Vec::new(),
+            binders: Vec::new(),
             max_universe: UniverseIndex::root(),
             interner,
         };
         let value = value.fold_with(&mut q, DebruijnIndex::INNERMOST).unwrap();
         let free_vars = q.free_vars.clone();
         let max_universe = q.max_universe;
+        let binders = CanonicalVarKinds::from_iter(interner, q.binders.into_iter());
 
         Canonicalized {
-            quantified: Canonical {
-                value,
-                binders: q.into_binders(),
-            },
+            quantified: Canonical { value, binders },
             max_universe,
             free_vars,
         }
@@ -60,7 +60,7 @@ pub struct Canonicalized<T: HasInterner> {
     pub quantified: Canonical<T>,
 
     /// The free existential variables, along with the universes they inhabit.
-    pub free_vars: Vec<ParameterEnaVariable<T::Interner>>,
+    pub free_vars: Vec<GenericArg<T::Interner>>,
 
     /// The maximum universe of any universally quantified variables
     /// encountered.
@@ -69,47 +69,21 @@ pub struct Canonicalized<T: HasInterner> {
 
 struct Canonicalizer<'q, I: Interner> {
     table: &'q mut InferenceTable<I>,
-    free_vars: Vec<ParameterEnaVariable<I>>,
+    free_vars: Vec<GenericArg<I>>,
+    binders: Vec<CanonicalVarKind<I>>,
     max_universe: UniverseIndex,
     interner: &'q I,
 }
 
 impl<'q, I: Interner> Canonicalizer<'q, I> {
-    fn into_binders(self) -> CanonicalVarKinds<I> {
-        let Canonicalizer {
-            table,
-            free_vars,
-            interner,
-            ..
-        } = self;
-        CanonicalVarKinds::from_iter(
-            interner,
-            free_vars
-                .into_iter()
-                .map(|p_v| p_v.map(|v| table.universe_of_unbound_var(v)))
-                .map(|p_v| {
-                    let universe = *p_v.skip_kind();
-                    match p_v.kind {
-                        VariableKind::Ty(ty_kind) => CanonicalVarKind::Ty(ty_kind, universe),
-                        VariableKind::Lifetime => CanonicalVarKind::Lifetime(universe),
-                        VariableKind::Const(ty) => CanonicalVarKind::Const(ty, universe),
-                    }
-                }),
-        )
-    }
-
-    fn add(&mut self, free_var: ParameterEnaVariable<I>) -> usize {
-        self.max_universe = max(
-            self.max_universe,
-            self.table.universe_of_unbound_var(*free_var.skip_kind()),
-        );
-
+    fn add(&mut self, free_var: GenericArg<I>, kind: CanonicalVarKind<I>) -> usize {
         self.free_vars
             .iter()
-            .position(|v| v.skip_kind() == free_var.skip_kind())
+            .position(|v| v == &free_var)
             .unwrap_or_else(|| {
                 let next_index = self.free_vars.len();
                 self.free_vars.push(free_var);
+                self.binders.push(kind);
                 next_index
             })
     }
@@ -179,10 +153,12 @@ where
                 // canonical index `root_var` in the union-find table,
                 // and then map `root_var` to a fresh index that is
                 // unique to this quantification.
-                let free_var =
-                    ParameterEnaVariable::new(VariableKind::Ty(kind), self.table.unify.find(var));
-
-                let bound_var = BoundVar::new(DebruijnIndex::INNERMOST, self.add(free_var));
+                let ena_var = self.table.unify.find(var);
+                let arg = ena_var.to_ty_with_kind(interner, kind).cast(interner);
+                let ui = self.table.universe_of_unbound_var(ena_var);
+                self.max_universe = max(self.max_universe, ui);
+                let var_kind = CanonicalVarKind::Ty(kind, ui);
+                let bound_var = BoundVar::new(DebruijnIndex::INNERMOST, self.add(arg, var_kind));
                 debug!(position=?bound_var, "not yet unified");
                 Ok(TyData::BoundVar(bound_var.shifted_in_from(outer_binder)).intern(interner))
             }
@@ -204,9 +180,12 @@ where
                     .shifted_in_from(interner, outer_binder))
             }
             None => {
-                let free_var =
-                    ParameterEnaVariable::new(VariableKind::Lifetime, self.table.unify.find(var));
-                let bound_var = BoundVar::new(DebruijnIndex::INNERMOST, self.add(free_var));
+                let ena_var = self.table.unify.find(var);
+                let arg = ena_var.to_lifetime(interner).cast(interner);
+                let ui = self.table.universe_of_unbound_var(ena_var);
+                self.max_universe = max(self.max_universe, ui);
+                let var_kind = CanonicalVarKind::Lifetime(ui);
+                let bound_var = BoundVar::new(DebruijnIndex::INNERMOST, self.add(arg, var_kind));
                 debug!(position=?bound_var, "not yet unified");
                 Ok(
                     LifetimeData::BoundVar(bound_var.shifted_in_from(outer_binder))
@@ -232,11 +211,12 @@ where
                     .shifted_in_from(interner, outer_binder))
             }
             None => {
-                let free_var = ParameterEnaVariable::new(
-                    VariableKind::Const(ty.clone()),
-                    self.table.unify.find(var),
-                );
-                let bound_var = BoundVar::new(DebruijnIndex::INNERMOST, self.add(free_var));
+                let ena_var = self.table.unify.find(var);
+                let arg = ena_var.to_const(interner, ty.clone()).cast(interner);
+                let ui = self.table.universe_of_unbound_var(ena_var);
+                self.max_universe = max(self.max_universe, ui);
+                let var_kind = CanonicalVarKind::Const(ty.clone(), ui);
+                let bound_var = BoundVar::new(DebruijnIndex::INNERMOST, self.add(arg, var_kind));
                 debug!(position = ?bound_var, "not yet unified");
                 Ok(bound_var
                     .shifted_in_from(outer_binder)

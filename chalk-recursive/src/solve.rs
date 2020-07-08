@@ -12,7 +12,7 @@ use chalk_ir::{
 };
 use chalk_solve::clauses::program_clauses_for_goal;
 use chalk_solve::debug_span;
-use chalk_solve::infer::{InferenceTable, ParameterEnaVariableExt};
+use chalk_solve::infer::InferenceTable;
 use chalk_solve::{solve::truncate, RustIrDatabase};
 use std::fmt::Debug;
 use tracing::{debug, instrument};
@@ -255,12 +255,7 @@ impl<I: Interner> RecursiveInferenceTable<I> for RecursiveInferenceTableImpl<I> 
         T::Result: HasInterner<Interner = I>,
     {
         let res = self.infer.canonicalize(interner, value);
-        let free_vars = res
-            .free_vars
-            .into_iter()
-            .map(|free_var| free_var.to_generic_arg(interner))
-            .collect();
-        (res.quantified, free_vars)
+        (res.quantified, res.free_vars)
     }
 
     fn u_canonicalize<T>(

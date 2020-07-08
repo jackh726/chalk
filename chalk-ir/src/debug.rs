@@ -756,8 +756,20 @@ impl<I: Interner> Debug for Environment<I> {
 
 impl<I: Interner> Debug for CanonicalVarKind<I> {
     fn fmt(&self, fmt: &mut Formatter<'_>) -> Result<(), Error> {
-        // XXX
-        write!(fmt, "CanonicalVarKind")
+        match self {
+            CanonicalVarKind::Ty(ty, ui) => write!(fmt, "Ty({:?}, {:?})", ty, ui),
+            CanonicalVarKind::PlaceholderTy(placeholder) => {
+                write!(fmt, "PlaceholderTy({:?})", placeholder)
+            }
+            CanonicalVarKind::Lifetime(ui) => write!(fmt, "Lifetime({:?})", ui),
+            CanonicalVarKind::PlaceholderLifetime(placeholder) => {
+                write!(fmt, "PlaceholderLifetime({:?})", placeholder)
+            }
+            CanonicalVarKind::Const(ty, ui) => write!(fmt, "Const({:?}, {:?})", ty, ui),
+            CanonicalVarKind::PlaceholderConst(ty, placeholder) => {
+                write!(fmt, "PlaceholderConst({:?}, {:?})", ty, placeholder)
+            }
+        }
     }
 }
 
