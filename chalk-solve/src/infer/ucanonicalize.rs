@@ -48,17 +48,38 @@ impl<I: Interner> InferenceTable<I> {
             .unwrap();
         let binders = CanonicalVarKinds::from_iter(
             interner,
-            value0
-                .binders
-                .iter(interner)
-                .map(|pk| match pk.clone() {
-                    CanonicalVarKind::Ty(kind, ui) => CanonicalVarKind::Ty(kind, universes.map_universe_to_canonical(ui).unwrap()),
-                    CanonicalVarKind::Lifetime(ui) => CanonicalVarKind::Lifetime(universes.map_universe_to_canonical(ui).unwrap()),
-                    CanonicalVarKind::Const(ty, ui) => CanonicalVarKind::Const(ty, universes.map_universe_to_canonical(ui).unwrap()),
-                    CanonicalVarKind::PlaceholderTy(placeholder) => CanonicalVarKind::PlaceholderTy(PlaceholderIndex { ui: universes.map_universe_to_canonical(placeholder.ui).unwrap(), idx: placeholder.idx }),
-                    CanonicalVarKind::PlaceholderLifetime(placeholder) => CanonicalVarKind::PlaceholderLifetime(PlaceholderIndex { ui: universes.map_universe_to_canonical(placeholder.ui).unwrap(), idx: placeholder.idx }),
-                    CanonicalVarKind::PlaceholderConst(ty, placeholder) => CanonicalVarKind::PlaceholderConst(ty, PlaceholderIndex { ui: universes.map_universe_to_canonical(placeholder.ui).unwrap(), idx: placeholder.idx }),
-                })
+            value0.binders.iter(interner).map(|pk| match pk.clone() {
+                CanonicalVarKind::Ty(kind, ui) => {
+                    CanonicalVarKind::Ty(kind, universes.map_universe_to_canonical(ui).unwrap())
+                }
+                CanonicalVarKind::Lifetime(ui) => {
+                    CanonicalVarKind::Lifetime(universes.map_universe_to_canonical(ui).unwrap())
+                }
+                CanonicalVarKind::Const(ty, ui) => {
+                    CanonicalVarKind::Const(ty, universes.map_universe_to_canonical(ui).unwrap())
+                }
+                CanonicalVarKind::PlaceholderTy(placeholder) => {
+                    CanonicalVarKind::PlaceholderTy(PlaceholderIndex {
+                        ui: universes.map_universe_to_canonical(placeholder.ui).unwrap(),
+                        idx: placeholder.idx,
+                    })
+                }
+                CanonicalVarKind::PlaceholderLifetime(placeholder) => {
+                    CanonicalVarKind::PlaceholderLifetime(PlaceholderIndex {
+                        ui: universes.map_universe_to_canonical(placeholder.ui).unwrap(),
+                        idx: placeholder.idx,
+                    })
+                }
+                CanonicalVarKind::PlaceholderConst(ty, placeholder) => {
+                    CanonicalVarKind::PlaceholderConst(
+                        ty,
+                        PlaceholderIndex {
+                            ui: universes.map_universe_to_canonical(placeholder.ui).unwrap(),
+                            idx: placeholder.idx,
+                        },
+                    )
+                }
+            }),
         );
 
         UCanonicalized {
@@ -182,12 +203,36 @@ impl UniverseMapExt for UniverseMap {
             .binders
             .iter(interner)
             .map(|cvk| match cvk.clone() {
-                CanonicalVarKind::Ty(kind, ui) => CanonicalVarKind::Ty(kind, self.map_universe_from_canonical(ui)),
-                CanonicalVarKind::Lifetime(ui) => CanonicalVarKind::Lifetime(self.map_universe_from_canonical(ui)),
-                CanonicalVarKind::Const(ty, ui) => CanonicalVarKind::Const(ty, self.map_universe_from_canonical(ui)),
-                CanonicalVarKind::PlaceholderTy(placeholder) => CanonicalVarKind::PlaceholderTy(PlaceholderIndex { ui: self.map_universe_from_canonical(placeholder.ui), idx: placeholder.idx }),
-                CanonicalVarKind::PlaceholderLifetime(placeholder) => CanonicalVarKind::PlaceholderLifetime(PlaceholderIndex { ui: self.map_universe_from_canonical(placeholder.ui), idx: placeholder.idx }),
-                CanonicalVarKind::PlaceholderConst(ty, placeholder) => CanonicalVarKind::PlaceholderConst(ty, PlaceholderIndex { ui: self.map_universe_from_canonical(placeholder.ui), idx: placeholder.idx }),
+                CanonicalVarKind::Ty(kind, ui) => {
+                    CanonicalVarKind::Ty(kind, self.map_universe_from_canonical(ui))
+                }
+                CanonicalVarKind::Lifetime(ui) => {
+                    CanonicalVarKind::Lifetime(self.map_universe_from_canonical(ui))
+                }
+                CanonicalVarKind::Const(ty, ui) => {
+                    CanonicalVarKind::Const(ty, self.map_universe_from_canonical(ui))
+                }
+                CanonicalVarKind::PlaceholderTy(placeholder) => {
+                    CanonicalVarKind::PlaceholderTy(PlaceholderIndex {
+                        ui: self.map_universe_from_canonical(placeholder.ui),
+                        idx: placeholder.idx,
+                    })
+                }
+                CanonicalVarKind::PlaceholderLifetime(placeholder) => {
+                    CanonicalVarKind::PlaceholderLifetime(PlaceholderIndex {
+                        ui: self.map_universe_from_canonical(placeholder.ui),
+                        idx: placeholder.idx,
+                    })
+                }
+                CanonicalVarKind::PlaceholderConst(ty, placeholder) => {
+                    CanonicalVarKind::PlaceholderConst(
+                        ty,
+                        PlaceholderIndex {
+                            ui: self.map_universe_from_canonical(placeholder.ui),
+                            idx: placeholder.idx,
+                        },
+                    )
+                }
             });
 
         let value = canonical_value

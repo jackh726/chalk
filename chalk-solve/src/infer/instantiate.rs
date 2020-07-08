@@ -17,33 +17,39 @@ impl<I: Interner> InferenceTable<I> {
     ) -> Substitution<I> {
         Substitution::from_iter(
             interner,
-            binders.iter().map(|kind| self.instantiate_kind(interner, kind)),
+            binders
+                .iter()
+                .map(|kind| self.instantiate_kind(interner, kind)),
         )
     }
 
     fn instantiate_kind(&mut self, interner: &I, kind: &CanonicalVarKind<I>) -> GenericArg<I> {
         match kind {
-            CanonicalVarKind::Ty(ty_kind, ui) => {
-                self.new_variable(*ui).to_ty_with_kind(interner, *ty_kind).cast(interner)
-            }
-            CanonicalVarKind::PlaceholderTy(placeholder) => {
-                TyData::Placeholder(*placeholder).intern(interner).cast(interner)
-            }
+            CanonicalVarKind::Ty(ty_kind, ui) => self
+                .new_variable(*ui)
+                .to_ty_with_kind(interner, *ty_kind)
+                .cast(interner),
+            CanonicalVarKind::PlaceholderTy(placeholder) => TyData::Placeholder(*placeholder)
+                .intern(interner)
+                .cast(interner),
             CanonicalVarKind::Lifetime(ui) => {
                 self.new_variable(*ui).to_lifetime(interner).cast(interner)
             }
             CanonicalVarKind::PlaceholderLifetime(placeholder) => {
-                LifetimeData::Placeholder(*placeholder).intern(interner).cast(interner)
+                LifetimeData::Placeholder(*placeholder)
+                    .intern(interner)
+                    .cast(interner)
             }
-            CanonicalVarKind::Const(ty, ui) => {
-                self.new_variable(*ui).to_const(interner, ty.clone()).cast(interner)
+            CanonicalVarKind::Const(ty, ui) => self
+                .new_variable(*ui)
+                .to_const(interner, ty.clone())
+                .cast(interner),
+            CanonicalVarKind::PlaceholderConst(ty, placeholder) => ConstData {
+                ty: ty.clone(),
+                value: ConstValue::Placeholder(*placeholder),
             }
-            CanonicalVarKind::PlaceholderConst(ty, placeholder) => {
-                ConstData {
-                    ty: ty.clone(),
-                    value: ConstValue::Placeholder(*placeholder),
-                }.intern(interner).cast(interner)
-            }
+            .intern(interner)
+            .cast(interner),
         }
     }
 
@@ -72,14 +78,13 @@ impl<I: Interner> InferenceTable<I> {
         // given universe; the kinds of the variables are implied by
         // `binders`. This is used to apply a universally quantified
         // clause like `forall X, 'Y. P => Q`. Here the `binders`
-        // argument is referring to `X, 'Y`.        
+        // argument is referring to `X, 'Y`.
         let binders: Vec<_> = binders
             .into_iter()
             .map(|pk| match pk {
                 VariableKind::Ty(ty) => CanonicalVarKind::Ty(ty, max_universe),
                 VariableKind::Lifetime => CanonicalVarKind::Lifetime(max_universe),
                 VariableKind::Const(ty) => CanonicalVarKind::Const(ty, max_universe),
-
             })
             .collect();
         let subst = self.fresh_subst(interner, &binders);
