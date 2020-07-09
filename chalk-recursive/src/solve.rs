@@ -144,6 +144,9 @@ trait SolveIterationHelpers<I: Interner>: SolveDatabase<I> {
             }
 
             let ProgramClauseData(implication) = program_clause.data(self.interner());
+
+            let implication = canonical_goal.map_ref(|g| g.map_ref(|_| implication));
+
             let res = self.solve_via_implication(canonical_goal, implication, minimums);
 
             if let (Ok(solution), priority) = res {
@@ -171,11 +174,13 @@ trait SolveIterationHelpers<I: Interner>: SolveDatabase<I> {
     fn solve_via_implication(
         &mut self,
         canonical_goal: &UCanonical<InEnvironment<DomainGoal<I>>>,
-        clause: &Binders<ProgramClauseImplication<I>>,
+        clause: UCanonical<&Binders<ProgramClauseImplication<I>>>,
         minimums: &mut Minimums,
     ) -> (Fallible<Solution<I>>, ClausePriority) {
         let (infer, subst, goal) = self.new_inference_table(canonical_goal);
-        match Fulfill::new_with_clause(self, infer, subst, goal, clause) {
+        let clause = subst.apply(&clause.canonical.value, self.interner());
+
+        match Fulfill::new_with_clause(self, infer, subst, goal, &clause) {
             Ok(fulfill) => (fulfill.solve(minimums), clause.skip_binders().priority),
             Err(e) => (Err(e), ClausePriority::High),
         }
