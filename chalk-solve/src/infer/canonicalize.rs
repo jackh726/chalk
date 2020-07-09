@@ -100,32 +100,54 @@ where
     fn fold_free_placeholder_ty(
         &mut self,
         universe: PlaceholderIndex,
-        _outer_binder: DebruijnIndex,
+        outer_binder: DebruijnIndex,
     ) -> Fallible<Ty<I>> {
         let interner = self.interner;
         self.max_universe = max(self.max_universe, universe.ui);
-        Ok(universe.to_ty(interner))
+        let var_kind = CanonicalVarKind::PlaceholderTy(universe);
+        let bound_var = BoundVar::new(
+            DebruijnIndex::INNERMOST,
+            self.add(universe.to_ty(interner).cast(interner), var_kind),
+        );
+        Ok(TyData::BoundVar(bound_var.shifted_in_from(outer_binder)).intern(interner))
     }
 
     fn fold_free_placeholder_lifetime(
         &mut self,
         universe: PlaceholderIndex,
-        _outer_binder: DebruijnIndex,
+        outer_binder: DebruijnIndex,
     ) -> Fallible<Lifetime<I>> {
         let interner = self.interner;
         self.max_universe = max(self.max_universe, universe.ui);
-        Ok(universe.to_lifetime(interner))
+        let var_kind = CanonicalVarKind::PlaceholderLifetime(universe);
+        let bound_var = BoundVar::new(
+            DebruijnIndex::INNERMOST,
+            self.add(universe.to_lifetime(interner).cast(interner), var_kind),
+        );
+        Ok(LifetimeData::BoundVar(bound_var.shifted_in_from(outer_binder)).intern(interner))
     }
 
     fn fold_free_placeholder_const(
         &mut self,
         ty: &Ty<I>,
         universe: PlaceholderIndex,
-        _outer_binder: DebruijnIndex,
+        outer_binder: DebruijnIndex,
     ) -> Fallible<Const<I>> {
         let interner = self.interner;
         self.max_universe = max(self.max_universe, universe.ui);
-        Ok(universe.to_const(interner, ty.clone()))
+        let var_kind = CanonicalVarKind::PlaceholderConst(ty.clone(), universe);
+        let bound_var = BoundVar::new(
+            DebruijnIndex::INNERMOST,
+            self.add(
+                universe.to_const(interner, ty.clone()).cast(interner),
+                var_kind,
+            ),
+        );
+        Ok(ConstData {
+            ty: ty.clone(),
+            value: ConstValue::BoundVar(bound_var.shifted_in_from(outer_binder)),
+        }
+        .intern(interner))
     }
 
     fn forbid_free_vars(&self) -> bool {

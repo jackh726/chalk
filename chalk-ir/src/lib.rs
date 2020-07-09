@@ -2112,6 +2112,20 @@ impl<T: HasInterner> HasInterner for Canonical<T> {
     type Interner = T::Interner;
 }
 
+impl<T: HasInterner> Canonical<T> {
+    /// Maps the value without touching the binders.
+    pub fn map_ref<OP, H: HasInterner>(&self, op: OP) -> Canonical<H>
+    where
+        OP: FnOnce(&T) -> H,
+        H: HasInterner<Interner = T::Interner>,
+    {
+        Canonical {
+            binders: self.binders.clone(),
+            value: op(&self.value),
+        }
+    }
+}
+
 /// A "universe canonical" value. This is a wrapper around a
 /// `Canonical`, indicating that the universes within have been
 /// "renumbered" to start from 0 and collapse unimportant
@@ -2128,6 +2142,18 @@ pub struct UCanonical<T: HasInterner> {
 }
 
 impl<T: HasInterner> UCanonical<T> {
+    /// Maps the canonical value without touching the universes.
+    pub fn map_ref<OP, H: HasInterner>(&self, op: OP) -> UCanonical<H>
+    where
+        OP: FnOnce(&Canonical<T>) -> Canonical<H>,
+        H: HasInterner<Interner = T::Interner>,
+    {
+        UCanonical {
+            universes: self.universes,
+            canonical: op(&self.canonical),
+        }
+    }
+
     /// Checks whether the universe canonical value is a trivial
     /// substitution (e.g. an identity substitution).
     pub fn is_trivial_substitution(
