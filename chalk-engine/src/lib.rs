@@ -211,7 +211,6 @@ pub struct CompleteAnswer<I: Interner> {
 /// Either `A` or `~A`, where `A` is a `Env |- Goal`.
 #[derive(Clone, Debug, Fold, Visit)]
 pub enum Literal<I: Interner> {
-    // FIXME: pub b/c fold
     Positive(InEnvironment<Goal<I>>),
     Negative(InEnvironment<Goal<I>>),
 }

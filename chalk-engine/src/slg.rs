@@ -321,6 +321,19 @@ impl<I: Interner> context::UnificationOps<I, SlgContext<I>> for TruncatingInfere
         self.infer.invert(interner, value)
     }
 
+    fn invert_goal_then_ucanonicalize(
+        &mut self,
+        interner: &I,
+        value: &InEnvironment<Goal<I>>,
+    ) -> Option<(UCanonical<InEnvironment<Goal<I>>>, UniverseMap)> {
+        let canonicalized = self.infer.invert_then_canonicalize(interner, value)?;
+        let UCanonicalized {
+            quantified,
+            universes,
+        } = self.infer.u_canonicalize(interner, &canonicalized);
+        Some((quantified, universes))
+    }
+
     fn unify_generic_args_into_ex_clause(
         &mut self,
         interner: &I,

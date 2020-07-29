@@ -418,7 +418,7 @@ impl<I: Interner> Ty<I> {
         match self.data(interner) {
             TyData::BoundVar(bv)
                 if bv.debruijn == DebruijnIndex::INNERMOST
-                    && binders.at(interner, bv.index).kind == VariableKind::Ty(TyKind::General) =>
+                    && matches!(binders.at(interner, bv.index), CanonicalVarKind::Ty(TyKind::General, _)) =>
             {
                 true
             }

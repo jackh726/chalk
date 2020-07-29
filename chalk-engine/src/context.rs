@@ -200,6 +200,12 @@ pub trait UnificationOps<I: Interner, C: Context<I>> {
         value: &InEnvironment<Goal<I>>,
     ) -> Option<InEnvironment<Goal<I>>>;
 
+    fn invert_goal_then_ucanonicalize(
+        &mut self,
+        interner: &I,
+        value: &InEnvironment<Goal<I>>,
+    ) -> Option<(UCanonical<InEnvironment<Goal<I>>>, UniverseMap)>;
+
     /// First unify the parameters, then add the residual subgoals
     /// as new subgoals of the ex-clause.
     /// Also add region constraints.

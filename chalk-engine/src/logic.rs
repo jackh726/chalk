@@ -385,12 +385,12 @@ impl<I: Interner, C: Context<I>> Forest<I, C> {
         // could instead generate an (imprecise) result). As you can
         // see a bit later, we also diverge in some other aspects that
         // affect completeness when it comes to subgoal abstraction.
-        let inverted_subgoal = infer.invert_goal(context.interner(), subgoal)?;
+        let inverted_subgoal = infer.invert_goal_then_ucanonicalize(context.interner(), subgoal)?;
 
-        if infer.goal_needs_truncation(context.interner(), &inverted_subgoal) {
+        if infer.goal_needs_truncation(context.interner(), &inverted_subgoal.0.canonical.value) {
             None
         } else {
-            Some(infer.fully_canonicalize_goal(context.interner(), &inverted_subgoal))
+            Some(inverted_subgoal)
         }
     }
 }
