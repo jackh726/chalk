@@ -65,7 +65,7 @@ pub(super) trait RecursiveInferenceTable<I: Interner> {
         arg: &'a Binders<T>,
     ) -> T::Result
     where
-        T: Fold<I> + HasInterner<Interner = I>;
+        T: Fold<I> + Visit<I> + HasInterner<Interner = I> + std::fmt::Debug;
 
     fn instantiate_binders_existentially<'a, T>(
         &mut self,
@@ -73,7 +73,7 @@ pub(super) trait RecursiveInferenceTable<I: Interner> {
         arg: &'a Binders<T>,
     ) -> T::Result
     where
-        T: Fold<I> + HasInterner<Interner = I>;
+        T: Fold<I> + Visit<I> + HasInterner<Interner = I> + std::fmt::Debug;
 
     fn canonicalize<T>(
         &mut self,
@@ -81,7 +81,7 @@ pub(super) trait RecursiveInferenceTable<I: Interner> {
         value: &T,
     ) -> (Canonical<T::Result>, Vec<GenericArg<I>>)
     where
-        T: Fold<I>,
+        T: Fold<I> + std::fmt::Debug,
         T::Result: HasInterner<Interner = I>;
 
     fn u_canonicalize<T>(
@@ -90,7 +90,7 @@ pub(super) trait RecursiveInferenceTable<I: Interner> {
         value0: &Canonical<T>,
     ) -> (UCanonical<T::Result>, UniverseMap)
     where
-        T: HasInterner<Interner = I> + Fold<I> + Visit<I>,
+        T: HasInterner<Interner = I> + Fold<I> + Visit<I> + std::fmt::Debug,
         T::Result: HasInterner<Interner = I>;
 
     fn unify<T>(
@@ -101,7 +101,7 @@ pub(super) trait RecursiveInferenceTable<I: Interner> {
         b: &T,
     ) -> Fallible<Vec<InEnvironment<Goal<I>>>>
     where
-        T: ?Sized + Zip<I>;
+        T: ?Sized + Zip<I> + std::fmt::Debug;
 
     fn instantiate_canonical<T>(&mut self, interner: &I, bound: &Canonical<T>) -> T::Result
     where
@@ -113,7 +113,7 @@ pub(super) trait RecursiveInferenceTable<I: Interner> {
         value: &T,
     ) -> Option<Canonical<T::Result>>
     where
-        T: Fold<I, Result = T> + HasInterner<Interner = I>;
+        T: Fold<I, Result = T> + HasInterner<Interner = I> + std::fmt::Debug;
 
     fn needs_truncation(&mut self, interner: &I, max_size: usize, value: impl Visit<I>) -> bool;
 }

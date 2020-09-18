@@ -73,7 +73,7 @@ impl<I: Interner> InferenceTable<I> {
     /// `None`) until the second unification has occurred.)
     pub fn invert<T>(&mut self, interner: &I, value: &T) -> Option<T::Result>
     where
-        T: Fold<I, Result = T> + HasInterner<Interner = I>,
+        T: Fold<I, Result = T> + HasInterner<Interner = I> + std::fmt::Debug,
     {
         let Canonicalized {
             free_vars,
@@ -103,7 +103,7 @@ impl<I: Interner> InferenceTable<I> {
         value: &T,
     ) -> Option<Canonical<T::Result>>
     where
-        T: Fold<I, Result = T> + HasInterner<Interner = I>,
+        T: Fold<I, Result = T> + HasInterner<Interner = I> + std::fmt::Debug,
     {
         let snapshot = self.snapshot();
         let result = self.invert(interner, value);

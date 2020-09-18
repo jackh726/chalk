@@ -100,7 +100,8 @@ impl<I: Interner> RenderAsRust<I> for AdtDatum<I> {
             AdtKind::Enum => write!(f, "enum {}", self.id.display(s),)?,
             AdtKind::Union => write!(f, "union {}", self.id.display(s),)?,
         }
-        write_joined_non_empty_list!(f, "<{}>", s.binder_var_display(&self.binders.binders), ", ")?;
+        let binders = self.binders.binders(s.db().interner());
+        write_joined_non_empty_list!(f, "<{}>", s.binder_var_display(&binders), ", ")?;
 
         // where clauses
         if !value.where_clauses.is_empty() {
@@ -199,7 +200,8 @@ impl<I: Interner> RenderAsRust<I> for TraitDatum<I> {
         }
 
         // trait declaration
-        let binders = s.binder_var_display(&self.binders.binders).skip(1);
+        let binders = self.binders.binders(s.db().interner());
+        let binders = s.binder_var_display(&binders).skip(1);
         write!(f, "trait {}", self.id.display(s))?;
         write_joined_non_empty_list!(f, "<{}>", binders, ", ")?;
 
@@ -233,7 +235,8 @@ impl<I: Interner> RenderAsRust<I> for ImplDatum<I> {
         let interner = s.db().interner();
 
         let s = &s.add_debrujin_index(None);
-        let binders = s.binder_var_display(&self.binders.binders);
+        let binders = self.binders.binders(interner);
+        let binders = s.binder_var_display(&binders);
         let value = self.binders.skip_binders();
 
         // annotations
@@ -306,7 +309,8 @@ impl<I: Interner> RenderAsRust<I> for OpaqueTyDatum<I> {
         let s = &s.add_debrujin_index(None);
         let bounds = self.bound.skip_binders();
         write!(f, "opaque type {}", self.opaque_ty_id.display(s))?;
-        write_joined_non_empty_list!(f, "<{}>", s.binder_var_display(&self.bound.binders), ", ")?;
+        let binders = self.bound.binders(s.db().interner());
+        write_joined_non_empty_list!(f, "<{}>", s.binder_var_display(&binders), ", ")?;
         {
             let s = &s.add_debrujin_index(Some(0));
             let clauses = bounds.bounds.skip_binders();
@@ -338,12 +342,13 @@ impl<I: Interner> RenderAsRust<I> for AssociatedTyDatum<I> {
         let trait_datum = s.db().trait_datum(self.trait_id);
         // inverted Debrujin indices for the trait's parameters in the trait
         // environment
-        let trait_param_names_in_trait_env = s.binder_var_indices(&trait_datum.binders.binders);
+        let binders = trait_datum.binders.binders(s.db().interner());
+        let trait_param_names_in_trait_env = s.binder_var_indices(&binders);
         let s = &s.add_debrujin_index(None);
         // inverted Debrujin indices for the trait's parameters in the
         // associated type environment
         let param_names_in_assoc_ty_env = s
-            .binder_var_indices(&self.binders.binders)
+            .binder_var_indices(&self.binders.binders(s.db().interner()))
             .collect::<Vec<_>>();
         // inverted Debrujin indices to render the trait's parameters in the
         // associated type environment
@@ -359,7 +364,7 @@ impl<I: Interner> RenderAsRust<I> for AssociatedTyDatum<I> {
         // rendered names for the associated type's generics in the associated
         // type environment
         let binder_display_in_assoc_ty = s
-            .binder_var_display(&self.binders.binders)
+            .binder_var_display(&self.binders.binders(s.db().interner()))
             .collect::<Vec<_>>();
 
         let (_, assoc_ty_params) = s
@@ -405,13 +410,14 @@ impl<I: Interner> RenderAsRust<I> for AssociatedTyValue<I> {
         let assoc_ty_data = s.db().associated_ty_data(self.associated_ty_id);
         let impl_datum = s.db().impl_datum(self.impl_id);
 
-        let impl_param_names_in_impl_env = s.binder_var_indices(&impl_datum.binders.binders);
+        let binders = impl_datum.binders.binders(s.db().interner()); 
+        let impl_param_names_in_impl_env = s.binder_var_indices(&binders);
 
         let s = &s.add_debrujin_index(None);
         let value = self.value.skip_binders();
 
         let param_names_in_assoc_ty_value_env = s
-            .binder_var_indices(&self.value.binders)
+            .binder_var_indices(&self.value.binders(s.db().interner()))
             .collect::<Vec<_>>();
 
         let (impl_params_in_assoc_ty_value_env, _assoc_ty_value_params) = s
@@ -424,7 +430,7 @@ impl<I: Interner> RenderAsRust<I> for AssociatedTyValue<I> {
         );
 
         let display_params = s
-            .binder_var_display(&self.value.binders)
+            .binder_var_display(&self.value.binders(s.db().interner()))
             .collect::<Vec<_>>();
 
         let (_impl_display, assoc_ty_value_display) = s
@@ -451,7 +457,8 @@ impl<I: Interner> RenderAsRust<I> for FnDefDatum<I> {
         // binders
         // fn foo<T>(arg: u32, arg2: T) -> Result<T> where T: Bar
         //       ^^^
-        let binders = s.binder_var_display(&self.binders.binders);
+        let binders = self.binders.binders(s.db().interner());
+        let binders = s.binder_var_display(&binders);
         write_joined_non_empty_list!(f, "<{}>", binders, ", ")?;
 
         {

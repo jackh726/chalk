@@ -5,6 +5,7 @@ use crate::infer::instantiate::IntoBindersAndValue;
 use chalk_ir::cast::Cast;
 use chalk_ir::fold::{Fold, Folder};
 use chalk_ir::interner::{HasInterner, Interner};
+use chalk_ir::visit::Visit;
 use chalk_ir::zip::{Zip, Zipper};
 use std::fmt::Debug;
 
@@ -18,7 +19,7 @@ impl<I: Interner> InferenceTable<I> {
         b: &T,
     ) -> Fallible<UnificationResult<I>>
     where
-        T: ?Sized + Zip<I>,
+        T: ?Sized + Zip<I> + Debug,
     {
         let snapshot = self.snapshot();
         match Unifier::new(interner, self, environment).unify(a, b) {
@@ -507,7 +508,7 @@ impl<'i, I: Interner> Zipper<'i, I> for Unifier<'i, I> {
 
     fn zip_binders<T>(&mut self, a: &Binders<T>, b: &Binders<T>) -> Fallible<()>
     where
-        T: HasInterner<Interner = I> + Zip<I> + Fold<I, Result = T>,
+        T: HasInterner<Interner = I> + Zip<I> + Fold<I, Result = T> + Visit<I> + std::fmt::Debug,
     {
         // The binders that appear in types (apart from quantified types, which are
         // handled in `unify_ty`) appear as part of `dyn Trait` and `impl Trait` types.

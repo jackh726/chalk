@@ -125,10 +125,11 @@ pub fn super_traits<I: Interner>(
         },
     );
     let mut trait_refs = Vec::new();
-    go(db, trait_ref, &mut seen_traits, &mut trait_refs);
+    go(db, 0, trait_ref, &mut seen_traits, &mut trait_refs);
 
     fn go<I: Interner>(
         db: &dyn RustIrDatabase<I>,
+        num_binders: usize,
         trait_ref: Binders<TraitRef<I>>,
         seen_traits: &mut FxHashSet<TraitId<I>>,
         trait_refs: &mut Vec<Binders<TraitRef<I>>>,
@@ -175,12 +176,12 @@ pub fn super_traits<I: Interner>(
         for q_super_trait_ref in super_trait_refs {
             // So now we need to combine the binders of trait_ref with the
             // binders of super_trait_ref.
-            let actual_binders = Binders::new(trait_ref.binders.clone(), q_super_trait_ref);
+            let actual_binders = Binders::empty2(q_super_trait_ref);
             let q_super_trait_ref = actual_binders.fuse_binders(interner);
             go(db, q_super_trait_ref, seen_traits, trait_refs);
         }
         seen_traits.remove(&trait_id);
     }
 
-    Binders::new(trait_datum.binders.binders.clone(), trait_refs)
+    Binders::empty2(trait_refs)
 }

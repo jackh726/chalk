@@ -4,6 +4,7 @@ use crate::cast::{Cast, CastTo};
 use crate::RustIrDatabase;
 use chalk_ir::fold::{Fold, Shift};
 use chalk_ir::interner::{HasInterner, Interner};
+use chalk_ir::visit::Visit;
 use chalk_ir::*;
 use tracing::{debug, instrument};
 
@@ -135,15 +136,15 @@ impl<'me, I: Interner> ClauseBuilder<'me, I> {
         op: impl FnOnce(&mut Self, V::Result) -> R,
     ) -> R
     where
-        V: Fold<I> + HasInterner<Interner = I>,
+        V: Fold<I> + Visit<I> + HasInterner<Interner = I> + std::fmt::Debug,
         V::Result: std::fmt::Debug,
     {
         let old_len = self.binders.len();
         let interner = self.interner();
-        self.binders.extend(binders.binders.iter(interner).cloned());
+        let variable_kinds = binders.binders(interner);
+        self.binders.extend(variable_kinds.iter(interner).cloned());
         self.parameters.extend(
-            binders
-                .binders
+            variable_kinds
                 .iter(interner)
                 .zip(old_len..)
                 .map(|(pk, i)| (i, pk).to_generic_arg(interner)),

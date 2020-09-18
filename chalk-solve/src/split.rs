@@ -29,6 +29,7 @@ pub trait Split<I: Interner>: RustIrDatabase<I> {
         } = *projection;
         let parameters = substitution.as_slice(interner);
         let associated_ty_data = &self.associated_ty_data(associated_ty_id);
+        dbg!(&parameters);
         let (trait_params, other_params) =
             self.split_associated_ty_parameters(parameters, &**associated_ty_data);
         (associated_ty_data.clone(), trait_params, other_params)
@@ -87,7 +88,7 @@ pub trait Split<I: Interner>: RustIrDatabase<I> {
     ) -> (&'p [P], &'p [P]) {
         let interner = self.interner();
         let impl_datum = self.impl_datum(associated_ty_value.impl_id);
-        let impl_params_len = impl_datum.binders.len(interner);
+        let impl_params_len = impl_datum.params.len(interner);
         assert!(parameters.len() >= impl_params_len);
 
         // the impl parameters are a suffix
@@ -189,7 +190,8 @@ pub trait Split<I: Interner>: RustIrDatabase<I> {
         associated_ty_datum: &AssociatedTyDatum<I>,
     ) -> (&'p [P], &'p [P]) {
         let trait_datum = &self.trait_datum(associated_ty_datum.trait_id);
-        let trait_num_params = trait_datum.binders.len(self.interner());
+        dbg!(&trait_datum);
+        let trait_num_params = trait_datum.params.len(self.interner());
         let split_point = parameters.len() - trait_num_params;
         let (other_params, trait_params) = parameters.split_at(split_point);
         (trait_params, other_params)

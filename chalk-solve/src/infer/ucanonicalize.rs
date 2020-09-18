@@ -13,7 +13,7 @@ impl<I: Interner> InferenceTable<I> {
         value0: &Canonical<T>,
     ) -> UCanonicalized<T::Result>
     where
-        T: HasInterner<Interner = I> + Fold<I> + Visit<I>,
+        T: HasInterner<Interner = I> + Fold<I> + Visit<I> + std::fmt::Debug,
         T::Result: HasInterner<Interner = I>,
     {
         debug_span!("u_canonicalize", "{:#?}", value0);
@@ -86,7 +86,7 @@ pub trait UniverseMapExt {
         canonical_value: &Canonical<T>,
     ) -> Canonical<T::Result>
     where
-        T: Fold<I> + HasInterner<Interner = I>,
+        T: Fold<I> + HasInterner<Interner = I> + std::fmt::Debug,
         T::Result: HasInterner<Interner = I>,
         I: Interner;
 }
@@ -165,7 +165,7 @@ impl UniverseMapExt for UniverseMap {
         canonical_value: &Canonical<T>,
     ) -> Canonical<T::Result>
     where
-        T: Fold<I> + HasInterner<Interner = I>,
+        T: Fold<I> + HasInterner<Interner = I> + std::fmt::Debug,
         T::Result: HasInterner<Interner = I>,
         I: Interner,
     {

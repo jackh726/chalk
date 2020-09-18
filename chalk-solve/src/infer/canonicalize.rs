@@ -29,7 +29,7 @@ impl<I: Interner> InferenceTable<I> {
     /// also returned.
     pub fn canonicalize<T>(&mut self, interner: &I, value: &T) -> Canonicalized<T::Result>
     where
-        T: Fold<I>,
+        T: Fold<I> + std::fmt::Debug,
         T::Result: HasInterner<Interner = I>,
     {
         debug_span!("canonicalize", "{:#?}", value);

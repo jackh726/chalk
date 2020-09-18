@@ -51,14 +51,10 @@ where
         TI: 'i,
     {
         let Binders {
-            binders: self_binders,
             value: self_value,
         } = self;
         let value = self_value.fold_with(folder, outer_binder.shifted_in())?;
-        let binders = VariableKinds {
-            interned: TI::transfer_variable_kinds(self_binders.interned().clone()),
-        };
-        Ok(Binders::new(binders, value))
+        Ok(Binders::empty2(value))
     }
 }
 

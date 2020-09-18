@@ -6,7 +6,7 @@ use chalk_ir::{
     debug::SeparatorTraitRef, AdtId, AliasTy, ApplicationTy, AssocTypeId, Binders,
     CanonicalVarKinds, ClosureId, FnDefId, ForeignDefId, GenericArg, Goal, Goals, ImplId, Lifetime,
     OpaqueTy, OpaqueTyId, ProgramClause, ProgramClauseImplication, ProgramClauses, ProjectionTy,
-    Substitution, TraitId, Ty,
+    Substitution, TraitId, Ty, VariableKinds,
 };
 use chalk_solve::rust_ir::{
     AdtDatum, AdtRepr, AssociatedTyDatum, AssociatedTyValue, AssociatedTyValueId, ClosureKind,
@@ -83,6 +83,8 @@ pub struct Program {
 
     /// For each associated ty declaration `type Foo` found in a trait:
     pub associated_ty_data: BTreeMap<AssocTypeId<ChalkIr>, Arc<AssociatedTyDatum<ChalkIr>>>,
+
+    pub associated_ty_bounds: BTreeMap<AssocTypeId<ChalkIr>, Arc<VariableKinds<ChalkIr>>>,
 
     /// For each user-specified clause
     pub custom_clauses: Vec<ProgramClause<ChalkIr>>,
@@ -192,7 +194,9 @@ impl tls::DebugContext for Program {
         projection_ty: &ProjectionTy<ChalkIr>,
         fmt: &mut fmt::Formatter<'_>,
     ) -> Result<(), fmt::Error> {
+        dbg!(&projection_ty.substitution);
         let (associated_ty_data, trait_params, other_params) = self.split_projection(projection_ty);
+        dbg!(&trait_params);
         write!(
             fmt,
             "<{:?} as {:?}{:?}>::{}{:?}",

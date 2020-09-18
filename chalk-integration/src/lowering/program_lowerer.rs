@@ -16,7 +16,7 @@ use super::{env::*, Lower, LowerParameterMap, LowerWithEnv, FIXME_SELF};
 use crate::error::RustIrError;
 use crate::program::Program as LoweredProgram;
 use crate::RawId;
-use crate::{interner::ChalkIr, TypeKind, TypeSort};
+use crate::{interner::ChalkIr, TypeKind, TypeSort, Binders};
 
 #[derive(Default)]
 pub(super) struct ProgramLowerer {
@@ -144,6 +144,7 @@ impl ProgramLowerer {
         let mut impl_data = BTreeMap::new();
         let mut associated_ty_data = BTreeMap::new();
         let mut associated_ty_values = BTreeMap::new();
+        let mut associated_ty_bounds = BTreeMap::new();
         let mut opaque_ty_data = BTreeMap::new();
         let mut hidden_opaque_types = BTreeMap::new();
         let mut custom_clauses = Vec::new();
@@ -233,7 +234,7 @@ impl ProgramLowerer {
                         let mut variable_kinds = assoc_ty_defn.all_parameters();
                         variable_kinds.extend(trait_defn.all_parameters());
 
-                        let binders = empty_env.in_binders(variable_kinds, |env| {
+                        let binders = empty_env.in_binders(variable_kinds.clone(), |env| {
                             Ok(rust_ir::AssociatedTyDatumBound {
                                 bounds: assoc_ty_defn.bounds.lower(&env)?,
                                 where_clauses: assoc_ty_defn.where_clauses.lower(&env)?,
@@ -248,6 +249,11 @@ impl ProgramLowerer {
                                 name: assoc_ty_defn.name.str.clone(),
                                 binders,
                             }),
+                        );
+
+                        associated_ty_bounds.insert(
+                            lookup.id,
+                            Arc::new(VariableKinds::from_iter(empty_env.interner(), variable_kinds.iter().map(|v| v.kind.clone()))),
                         );
                     }
                 }
@@ -306,7 +312,7 @@ impl ProgramLowerer {
 
                             // Introduce a variable to represent the hidden "self type". This will be used in the bounds.
                             // So the `impl Trait<T1..Tn>` will be lowered to `exists<Self> { Self: Trait<T1..Tn> }`.
-                            let bounds: chalk_ir::Binders<Vec<chalk_ir::Binders<_>>> = env
+                            let bounds: Binders<Vec<Binders<_>>> = env
                                 .in_binders(
                                     Some(chalk_ir::WithKind::new(
                                         chalk_ir::VariableKind::Ty(TyKind::General),
@@ -332,7 +338,7 @@ impl ProgramLowerer {
                                             .collect())
                                     },
                                 )?;
-                            let where_clauses: chalk_ir::Binders<Vec<chalk_ir::Binders<_>>> = env
+                            let where_clauses: Binders<Vec<Binders<_>>> = env
                                 .in_binders(
                                 Some(chalk_ir::WithKind::new(
                                     chalk_ir::VariableKind::Ty(TyKind::General),
@@ -380,6 +386,7 @@ impl ProgramLowerer {
             impl_data,
             associated_ty_values,
             associated_ty_data,
+            associated_ty_bounds,
             opaque_ty_ids: self.opaque_ty_ids,
             opaque_ty_kinds: self.opaque_ty_kinds,
             opaque_ty_data,
@@ -402,10 +409,7 @@ macro_rules! lower_type_kind {
                 Ok(TypeKind {
                     sort: TypeSort::$sort,
                     name: self.name.str.clone(),
-                    binders: chalk_ir::Binders::new(
-                        VariableKinds::from_iter(&ChalkIr, $params(self).anonymize()),
-                        crate::Unit,
-                    ),
+                    binders: VariableKinds::from_iter(&ChalkIr, $params(self).anonymize()),
                 })
             }
         }

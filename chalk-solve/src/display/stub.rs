@@ -34,8 +34,7 @@ impl<I: Interner, DB: RustIrDatabase<I>> RustIrDatabase<I> for StubWrapper<'_, D
         ty: chalk_ir::AssocTypeId<I>,
     ) -> std::sync::Arc<crate::rust_ir::AssociatedTyDatum<I>> {
         let mut v = (*self.db.associated_ty_data(ty)).clone();
-        v.binders = Binders::new(
-            v.binders.binders.clone(),
+        v.binders = Binders::empty2(
             AssociatedTyDatumBound {
                 where_clauses: Vec::new(),
                 bounds: Vec::new(),
@@ -49,8 +48,7 @@ impl<I: Interner, DB: RustIrDatabase<I>> RustIrDatabase<I> for StubWrapper<'_, D
         trait_id: chalk_ir::TraitId<I>,
     ) -> std::sync::Arc<crate::rust_ir::TraitDatum<I>> {
         let mut v = (*self.db.trait_datum(trait_id)).clone();
-        v.binders = Binders::new(
-            v.binders.binders.clone(),
+        v.binders = Binders::empty2(
             TraitDatumBound {
                 where_clauses: Vec::new(),
             },
@@ -64,8 +62,7 @@ impl<I: Interner, DB: RustIrDatabase<I>> RustIrDatabase<I> for StubWrapper<'_, D
             AdtKind::Struct | AdtKind::Union => vec![AdtVariantDatum { fields: vec![] }],
             AdtKind::Enum => vec![],
         };
-        v.binders = Binders::new(
-            v.binders.binders.clone(),
+        v.binders = Binders::empty2(
             AdtDatumBound {
                 variants,
                 where_clauses: Vec::new(),
@@ -83,8 +80,7 @@ impl<I: Interner, DB: RustIrDatabase<I>> RustIrDatabase<I> for StubWrapper<'_, D
         fn_def_id: chalk_ir::FnDefId<I>,
     ) -> std::sync::Arc<crate::rust_ir::FnDefDatum<I>> {
         let mut v = (*self.db.fn_def_datum(fn_def_id)).clone();
-        v.binders = Binders::new(
-            v.binders.binders.clone(),
+        v.binders = Binders::empty2(
             FnDefDatumBound {
                 inputs_and_output: v.binders.skip_binders().inputs_and_output.clone(),
                 where_clauses: Vec::new(),
@@ -112,8 +108,7 @@ impl<I: Interner, DB: RustIrDatabase<I>> RustIrDatabase<I> for StubWrapper<'_, D
         id: chalk_ir::OpaqueTyId<I>,
     ) -> std::sync::Arc<crate::rust_ir::OpaqueTyDatum<I>> {
         let mut v = (*self.db.opaque_ty_data(id)).clone();
-        v.bound = Binders::new(
-            v.bound.binders,
+        v.bound = Binders::empty2(
             OpaqueTyDatumBound {
                 bounds: Binders::new(VariableKinds::empty(self.db.interner()), Vec::new()),
                 where_clauses: Binders::new(VariableKinds::empty(self.db.interner()), Vec::new()),

@@ -213,7 +213,7 @@ where
 
 /// Applies the given `visitor` to a value, producing a visited result
 /// of type `Visitor::Result`.
-pub trait Visit<I: Interner>: Debug {
+pub trait Visit<I: Interner> {
     /// Apply the given visitor `visitor` to `self`; `binders` is the
     /// number of binders that are in scope when beginning the
     /// visitor. Typically `binders` starts as 0, but is adjusted when

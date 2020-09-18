@@ -1784,9 +1784,6 @@ impl<I: Interner> HasInterner for AliasEq<I> {
 /// of `self.binders`.)
 #[derive(Clone, PartialEq, Eq, Hash)]
 pub struct Binders<T: HasInterner> {
-    /// The binders that quantify over the value.
-    pub binders: VariableKinds<T::Interner>,
-
     /// The value being quantified over.
     value: T,
 }
@@ -1803,15 +1800,18 @@ impl<T: HasInterner> HasInterner for Binders<T> {
 impl<T: HasInterner> Binders<T> {
     /// Create new binders.
     pub fn new(binders: VariableKinds<T::Interner>, value: T) -> Self {
-        Self { binders, value }
+        Self { value }
     }
 
     /// Wraps the given value in a binder without variables, i.e. `for<>
     /// (value)`. Since our deBruijn indices count binders, not variables, this
     /// is sometimes useful.
     pub fn empty(interner: &T::Interner, value: T) -> Self {
-        let binders = VariableKinds::empty(interner);
-        Self { binders, value }
+        Self { value }
+    }
+
+    pub fn empty2(value: T) -> Self {
+        Self { value }
     }
 
     /// Skips the binder and returns the "bound" value. This is a
@@ -1834,7 +1834,6 @@ impl<T: HasInterner> Binders<T> {
     /// value, leaving the original in place.
     pub fn as_ref(&self) -> Binders<&T> {
         Binders {
-            binders: self.binders.clone(),
             value: &self.value,
         }
     }
@@ -1847,7 +1846,6 @@ impl<T: HasInterner> Binders<T> {
     {
         let value = op(self.value);
         Binders {
-            binders: self.binders,
             value,
         }
     }
@@ -1861,7 +1859,6 @@ impl<T: HasInterner> Binders<T> {
     {
         let value = op(self.value)?;
         Some(Binders {
-            binders: self.binders,
             value,
         })
     }
@@ -1873,19 +1870,6 @@ impl<T: HasInterner> Binders<T> {
         U: HasInterner<Interner = T::Interner>,
     {
         self.as_ref().map(op)
-    }
-
-    /// Creates a `Substitution` containing bound vars such that applying this
-    /// substitution will not change the value, i.e. `^0.0, ^0.1, ^0.2` and so
-    /// on.
-    pub fn identity_substitution(&self, interner: &T::Interner) -> Substitution<T::Interner> {
-        Substitution::from_iter(
-            interner,
-            self.binders
-                .iter(interner)
-                .enumerate()
-                .map(|p| p.to_generic_arg(interner)),
-        )
     }
 
     /// Creates a fresh binders that contains a single type
@@ -1901,51 +1885,32 @@ impl<T: HasInterner> Binders<T> {
         // The new variable is at the front and everything afterwards is shifted up by 1
         let new_var = TyData::BoundVar(BoundVar::new(DebruijnIndex::INNERMOST, 0)).intern(interner);
         let value = op(new_var);
-        let binders = VariableKinds::from1(interner, VariableKind::Ty(TyKind::General));
-        Binders { binders, value }
-    }
-
-    /// Returns the number of binders.
-    pub fn len(&self, interner: &T::Interner) -> usize {
-        self.binders.len(interner)
+        Binders { value }
     }
 }
 
 impl<T, I> Binders<Binders<T>>
 where
-    T: Fold<I, I> + HasInterner<Interner = I>,
+    T: Fold<I, I> + Visit<I> + HasInterner<Interner = I> + std::fmt::Debug,
     T::Result: HasInterner<Interner = I>,
     I: Interner,
 {
     /// This turns two levels of binders (`for<A> for<B>`) into one level (`for<A, B>`).
-    pub fn fuse_binders(self, interner: &T::Interner) -> Binders<T::Result> {
-        let num_binders = self.len(interner);
+    pub fn fuse_binders(self, interner: &T::Interner, num_binders: usize) -> Binders<T::Result> {
         // generate a substitution to shift the indexes of the inner binder:
         let subst = Substitution::from_iter(
             interner,
             self.value
-                .binders
+                .binders(interner)
                 .iter(interner)
                 .enumerate()
                 .map(|(i, pk)| (i + num_binders, pk).to_generic_arg(interner)),
-        );
+        );  
         let value = self.value.substitute(interner, &subst);
-        let binders = VariableKinds::from_iter(
-            interner,
-            self.binders
-                .iter(interner)
-                .chain(self.value.binders.iter(interner))
-                .cloned(),
-        );
-        Binders { binders, value }
+        Binders { value }
     }
 }
 
-impl<T: HasInterner> From<Binders<T>> for (VariableKinds<T::Interner>, T) {
-    fn from(binders: Binders<T>) -> Self {
-        (binders.binders, binders.value)
-    }
-}
 
 impl<T, I> Binders<T>
 where
@@ -1962,8 +1927,49 @@ where
         parameters: &(impl AsParameters<I> + ?Sized),
     ) -> T::Result {
         let parameters = parameters.as_parameters(interner);
-        assert_eq!(self.binders.len(interner), parameters.len());
         Subst::apply(interner, parameters, &self.value)
+    }
+}
+
+impl<T, I> Binders<T>
+where
+    T: Visit<I> + HasInterner<Interner = I>,
+    I: Interner,
+{
+    /*
+    /// Returns the number of binders.
+    pub fn len(&self, interner: &T::Interner) -> usize {
+        let mut collector = CollectBoundVars { interner, binders: vec![] };
+        self.value.visit_with(&mut collector, DebruijnIndex::INNERMOST);
+        collector.binders.into_iter().map(|b| b.expect("Missing bound vars.")).len()
+    }
+    */
+}
+
+impl<T, I> Binders<T>
+where
+    T: Visit<I> + HasInterner<Interner = I> + std::fmt::Debug,
+    I: Interner,
+{    
+    /// Creates a `Substitution` containing bound vars such that applying this
+    /// substitution will not change the value, i.e. `^0.0, ^0.1, ^0.2` and so
+    /// on.
+    pub fn identity_substitution(&self, interner: &T::Interner) -> Substitution<T::Interner> {
+        Substitution::from_iter(
+            interner,
+            self.binders(interner)
+                .iter(interner)
+                .enumerate()
+                .map(|p| p.to_generic_arg(interner)),
+        )
+    }
+
+    /// Collect the bound vars
+    pub fn binders(&self, interner: &I) -> VariableKinds<I> {
+        dbg!(&self.value);
+        let mut collector = CollectBoundVars { interner, binders: vec![] };
+        self.value.visit_with(&mut collector, DebruijnIndex::INNERMOST);
+        VariableKinds::from_iter(interner, collector.binders.into_iter().map(|b| b.expect("Missing bound vars.")))
     }
 }
 
@@ -1980,7 +1986,6 @@ where
     fn into_iter(self) -> Self::IntoIter {
         BindersIntoIterator {
             iter: self.value.into_iter(),
-            binders: self.binders,
         }
     }
 }
@@ -1988,7 +1993,6 @@ where
 /// `IntoIterator` for binders.
 pub struct BindersIntoIterator<V: HasInterner + IntoIterator> {
     iter: <V as IntoIterator>::IntoIter,
-    binders: VariableKinds<V::Interner>,
 }
 
 impl<V> Iterator for BindersIntoIterator<V>
@@ -2000,7 +2004,7 @@ where
     fn next(&mut self) -> Option<Self::Item> {
         self.iter
             .next()
-            .map(|v| Binders::new(self.binders.clone(), v))
+            .map(|v| Binders::empty2(v))
     }
 }
 
@@ -2561,6 +2565,69 @@ impl<'i, I: Interner> Folder<'i, I> for &SubstFolder<'i, I> {
 
     fn target_interner(&self) -> &'i I {
         self.interner()
+    }
+}
+
+struct CollectBoundVars<'i, I: Interner> {
+    interner: &'i I,
+    binders: Vec<Option<VariableKind<I>>>,
+}
+
+impl<'i, I: Interner> Visitor<'i, I> for CollectBoundVars<'i, I> {
+    type Result = ();
+
+    fn as_dyn(&mut self) -> &mut dyn Visitor<'i, I, Result = Self::Result> {
+        self
+    }
+
+    fn visit_ty(&mut self, ty: &Ty<I>, outer_binder: DebruijnIndex) -> Self::Result {
+        match ty.data(self.interner()) {
+            TyData::BoundVar(bound_var) => {
+                if bound_var.debruijn == outer_binder {
+                    self.binders.resize_with(bound_var.index + 1, || Option::None);
+                }
+                matches!(self.binders[bound_var.index], None | Some(VariableKind::Ty(_)));
+                self.binders[bound_var.index] = Some(VariableKind::Ty(TyKind::General));
+            }
+            _ => {}
+        }
+        ty.super_visit_with(self.as_dyn(), outer_binder)
+    }
+
+    fn visit_lifetime(
+        &mut self,
+        lifetime: &Lifetime<I>,
+        outer_binder: DebruijnIndex,
+    ) -> Self::Result {
+        match lifetime.data(self.interner()) {
+            LifetimeData::BoundVar(bound_var) => {
+                if bound_var.debruijn == outer_binder {
+                    self.binders.resize_with(bound_var.index + 1, || Option::None);
+                }
+                matches!(self.binders[bound_var.index], None | Some(VariableKind::Lifetime));
+                self.binders[bound_var.index] = Some(VariableKind::Lifetime);
+            }
+            _ => {}
+        }
+        lifetime.super_visit_with(self.as_dyn(), outer_binder)
+    }
+
+    fn visit_const(&mut self, constant: &Const<I>, outer_binder: DebruijnIndex) -> Self::Result {
+        let data = constant.data(self.interner());
+        match data.value {
+            ConstValue::BoundVar(bound_var) => {
+                if bound_var.debruijn == outer_binder {
+                    self.binders.resize_with(bound_var.index + 1, || Option::None);
+                }
+                matches!(self.binders[bound_var.index], None | Some(VariableKind::Const(_)));
+                self.binders[bound_var.index] = Some(VariableKind::Const(data.ty.clone()));
+            }
+            _ => {}
+        }
+        constant.super_visit_with(self.as_dyn(), outer_binder)
+    }
+    fn interner(&self) -> &'i I {
+        self.interner
     }
 }
 

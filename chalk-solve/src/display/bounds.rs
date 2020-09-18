@@ -47,11 +47,12 @@ impl<I: Interner> RenderAsRust<I> for QuantifiedWhereClause<I> {
     fn fmt(&self, s: &InternalWriterState<'_, I>, f: &'_ mut Formatter<'_>) -> Result {
         let interner = s.db().interner();
         let s = &s.add_debrujin_index(None);
-        if !self.binders.is_empty(interner) {
+        let binders = self.binders(interner);
+        if !binders.is_empty(interner) {
             write!(
                 f,
                 "forall<{}> ",
-                s.binder_var_display(&self.binders).format(", ")
+                s.binder_var_display(&binders).format(", ")
             )?;
         }
         self.skip_binders().fmt(s, f)
@@ -62,11 +63,12 @@ impl<I: Interner> RenderAsRust<I> for QuantifiedInlineBound<I> {
     fn fmt(&self, s: &InternalWriterState<'_, I>, f: &'_ mut Formatter<'_>) -> Result {
         let interner = s.db().interner();
         let s = &s.add_debrujin_index(None);
-        if !self.binders.is_empty(&interner) {
+        let binders = self.binders(interner);
+        if !binders.is_empty(&interner) {
             write!(
                 f,
                 "forall<{}> ",
-                s.binder_var_display(&self.binders).format(", ")
+                s.binder_var_display(&binders).format(", ")
             )?;
         }
         self.skip_binders().fmt(s, f)

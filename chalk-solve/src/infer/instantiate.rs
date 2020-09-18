@@ -1,4 +1,5 @@
 use chalk_ir::fold::*;
+use chalk_ir::visit::Visit;
 use chalk_ir::interner::HasInterner;
 use std::fmt::Debug;
 
@@ -112,16 +113,17 @@ pub trait IntoBindersAndValue<'a, I: Interner> {
 impl<'a, I, T> IntoBindersAndValue<'a, I> for &'a Binders<T>
 where
     I: Interner,
-    T: HasInterner<Interner = I>,
+    T: HasInterner<Interner = I> + Visit<I> + std::fmt::Debug,
     I: 'a,
 {
-    type Binders = std::iter::Cloned<std::slice::Iter<'a, VariableKind<I>>>;
+    type Binders = Vec<VariableKind<I>>;
     type Value = &'a T;
 
     fn into_binders_and_value(self, interner: &'a I) -> (Self::Binders, Self::Value) {
-        (self.binders.iter(interner).cloned(), self.skip_binders())
+        (self.binders(interner).iter(interner).cloned().collect(), self.skip_binders())
     }
 }
+
 
 impl<'a, I> IntoBindersAndValue<'a, I> for &'a FnPointer<I>
 where

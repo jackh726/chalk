@@ -295,6 +295,13 @@ impl<I: Interner> VariableKinds<I> {
     }
 }
 
+impl<I: Interner> Debug for VariableKinds<I> {
+    fn fmt(&self, fmt: &mut Formatter<'_>) -> Result<(), Error> {
+        I::debug_variable_kinds_with_angles(self, fmt)
+            .unwrap_or_else(|| write!(fmt, "{:?}", self.interned))
+    }
+}
+
 struct VariableKindsDebug<'a, I: Interner>(&'a VariableKinds<I>);
 
 impl<'a, I: Interner> Debug for VariableKindsDebug<'a, I> {
@@ -349,9 +356,8 @@ impl<I: Interner> Debug for GoalData<I> {
         match self {
             GoalData::Quantified(qkind, ref subgoal) => write!(
                 fmt,
-                "{:?}{:?} {{ {:?} }}",
+                "{:?}<...> {{ {:?} }}",
                 qkind,
-                subgoal.binders.debug(),
                 subgoal.value
             ),
             GoalData::Implies(ref wc, ref g) => write!(fmt, "if ({:?}) {{ {:?} }}", wc, g),
@@ -761,16 +767,42 @@ impl<I: Interner> Debug for EqGoal<I> {
 impl<T: HasInterner + Debug> Debug for Binders<T> {
     fn fmt(&self, fmt: &mut Formatter<'_>) -> Result<(), Error> {
         let Binders {
-            ref binders,
             ref value,
         } = *self;
-        write!(fmt, "for{:?} ", binders.debug())?;
+        write!(fmt, "for<...> ")?;
+        Debug::fmt(value, fmt)
+    }
+}
+
+
+pub struct BindersDebug<'i, I: Interner, T: HasInterner<Interner = I> + Debug> {
+    interner: &'i I,
+    binders: &'i Binders<T>,
+}
+
+impl<I: Interner, T: HasInterner<Interner = I> + Debug> Binders<T> {
+    pub fn debug<'i>(&'i self, interner: &'i I) -> BindersDebug<'i, I, T> {
+        BindersDebug {
+            interner,
+            binders: self,
+        }
+    }
+}
+
+impl<I: Interner, T: HasInterner<Interner = I> + Debug + Visit<I>> Debug for BindersDebug<'_, I, T> {
+    fn fmt(&self, fmt: &mut Formatter<'_>) -> Result<(), Error> {
+        let Binders {
+            ref value,
+        } = *self.binders;
+        let binders = self.binders.binders(self.interner);
+        write!(fmt, "for<{:?}> ", binders.debug())?;
         Debug::fmt(value, fmt)
     }
 }
 
 impl<I: Interner> Debug for ProgramClauseData<I> {
     fn fmt(&self, fmt: &mut Formatter<'_>) -> Result<(), Error> {
+        dbg!("ProgramClauseData");
         write!(fmt, "{:?}", self.0)
     }
 }

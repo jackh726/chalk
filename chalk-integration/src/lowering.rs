@@ -457,7 +457,7 @@ impl LowerWithEnv for TraitBound {
             })?;
         }
 
-        for (binder, param) in k.binders.binders.iter(interner).zip(parameters.iter()) {
+        for (binder, param) in k.binders.iter(interner).zip(parameters.iter()) {
             if binder.kind() != param.kind() {
                 Err(RustIrError::IncorrectTraitParameterKind {
                     identifier: self.trait_name.clone(),
@@ -729,7 +729,6 @@ impl LowerWithEnv for Ty {
                 )?;
 
                 for (param, arg) in k
-                    .binders
                     .binders
                     .iter(interner)
                     .zip(substitution.iter(interner))
@@ -1004,6 +1003,7 @@ impl LowerWithEnv for (&TraitDefn, chalk_ir::TraitId<ChalkIr>) {
 
         let all_parameters = trait_defn.all_parameters();
         let all_parameters_len = all_parameters.len();
+        let params = chalk_ir::VariableKinds::from_iter(env.interner(), all_parameters.iter().map(|v| v.kind.clone()));
         let binders = env.in_binders(all_parameters, |env| {
             if trait_defn.flags.auto {
                 if all_parameters_len > 1 {
@@ -1027,6 +1027,7 @@ impl LowerWithEnv for (&TraitDefn, chalk_ir::TraitId<ChalkIr>) {
 
         let trait_datum = rust_ir::TraitDatum {
             id: *trait_id,
+            params,
             binders,
             flags: trait_defn.flags.lower(),
             associated_ty_ids,
@@ -1048,8 +1049,8 @@ pub fn lower_goal(goal: &Goal, program: &LoweredProgram) -> LowerResult<chalk_ir
             let trait_datum = &program.trait_data[&datum.trait_id];
             let num_trait_params = trait_datum.binders.len(interner);
             let num_addl_params = datum.binders.len(interner) - num_trait_params;
-            let addl_variable_kinds =
-                datum.binders.binders.as_slice(interner)[..num_addl_params].to_owned();
+            let associated_ty_bounds = program.associated_ty_bounds.get(&associated_ty_id).unwrap();
+            let addl_variable_kinds = associated_ty_bounds.as_slice(interner)[..num_addl_params].to_owned();
             let lookup = AssociatedTyLookup {
                 id: associated_ty_id,
                 addl_variable_kinds,

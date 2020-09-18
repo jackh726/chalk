@@ -229,7 +229,7 @@ impl<I: Interner> RecursiveInferenceTable<I> for RecursiveInferenceTableImpl<I> 
         arg: &'a Binders<T>,
     ) -> T::Result
     where
-        T: Fold<I> + HasInterner<Interner = I>,
+        T: Fold<I> + Visit<I> + HasInterner<Interner = I> + std::fmt::Debug,
     {
         self.infer.instantiate_binders_universally(interner, arg)
     }
@@ -240,7 +240,7 @@ impl<I: Interner> RecursiveInferenceTable<I> for RecursiveInferenceTableImpl<I> 
         arg: &'a Binders<T>,
     ) -> T::Result
     where
-        T: Fold<I> + HasInterner<Interner = I>,
+        T: Fold<I> + Visit<I> + HasInterner<Interner = I> + std::fmt::Debug,
     {
         self.infer.instantiate_binders_existentially(interner, arg)
     }
@@ -251,7 +251,7 @@ impl<I: Interner> RecursiveInferenceTable<I> for RecursiveInferenceTableImpl<I> 
         value: &T,
     ) -> (Canonical<T::Result>, Vec<GenericArg<I>>)
     where
-        T: Fold<I>,
+        T: Fold<I> + std::fmt::Debug,
         T::Result: HasInterner<Interner = I>,
     {
         let res = self.infer.canonicalize(interner, value);
@@ -269,7 +269,7 @@ impl<I: Interner> RecursiveInferenceTable<I> for RecursiveInferenceTableImpl<I> 
         value0: &Canonical<T>,
     ) -> (UCanonical<T::Result>, UniverseMap)
     where
-        T: HasInterner<Interner = I> + Fold<I> + Visit<I>,
+        T: HasInterner<Interner = I> + Fold<I> + Visit<I> + std::fmt::Debug,
         T::Result: HasInterner<Interner = I>,
     {
         let res = self.infer.u_canonicalize(interner, value0);
@@ -284,7 +284,7 @@ impl<I: Interner> RecursiveInferenceTable<I> for RecursiveInferenceTableImpl<I> 
         b: &T,
     ) -> Fallible<Vec<InEnvironment<Goal<I>>>>
     where
-        T: ?Sized + Zip<I>,
+        T: ?Sized + Zip<I> + std::fmt::Debug,
     {
         let res = self.infer.unify(interner, environment, a, b)?;
         Ok(res.goals)
@@ -303,7 +303,7 @@ impl<I: Interner> RecursiveInferenceTable<I> for RecursiveInferenceTableImpl<I> 
         value: &T,
     ) -> Option<Canonical<T::Result>>
     where
-        T: Fold<I, Result = T> + HasInterner<Interner = I>,
+        T: Fold<I, Result = T> + HasInterner<Interner = I> + std::fmt::Debug,
     {
         self.infer.invert_then_canonicalize(interner, value)
     }

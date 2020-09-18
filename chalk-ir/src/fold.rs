@@ -334,7 +334,7 @@ where
 /// * `TI` is the "target interner" that we are folding *into*
 ///
 /// Often, both are the same.
-pub trait Fold<I: Interner, TI: TargetInterner<I> = I>: Debug {
+pub trait Fold<I: Interner, TI: TargetInterner<I> = I> {
     /// The type of value that will be produced once folding is done.
     /// Typically this is `Self`, unless `Self` contains borrowed
     /// values, in which case owned values are produced (for example,

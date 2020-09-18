@@ -34,7 +34,7 @@ pub trait Zipper<'i, I: Interner> {
     /// Zips two values appearing beneath binders.
     fn zip_binders<T>(&mut self, a: &Binders<T>, b: &Binders<T>) -> Fallible<()>
     where
-        T: HasInterner<Interner = I> + Zip<I> + Fold<I, I, Result = T>;
+        T: HasInterner<Interner = I> + Zip<I> + Fold<I, I, Result = T> + Visit<I> + std::fmt::Debug;
 
     /// Retreives the interner from the underlying zipper object
     fn interner(&self) -> &'i I;
@@ -59,7 +59,7 @@ where
 
     fn zip_binders<T>(&mut self, a: &Binders<T>, b: &Binders<T>) -> Fallible<()>
     where
-        T: HasInterner<Interner = I> + Zip<I> + Fold<I, I, Result = T>,
+        T: HasInterner<Interner = I> + Zip<I> + Fold<I, I, Result = T> + Visit<I> + std::fmt::Debug,
     {
         (**self).zip_binders(a, b)
     }
@@ -76,7 +76,7 @@ where
 ///
 /// To implement the trait, typically you would use one of the macros
 /// like `eq_zip!`, `struct_zip!`, or `enum_zip!`.
-pub trait Zip<I>: Debug
+pub trait Zip<I>
 where
     I: Interner,
 {
@@ -182,7 +182,7 @@ impl<I: Interner> Zip<I> for Const<I> {
         zipper.zip_consts(a, b)
     }
 }
-impl<I: Interner, T: HasInterner<Interner = I> + Zip<I> + Fold<I, I, Result = T>> Zip<I>
+impl<I: Interner, T: HasInterner<Interner = I> + Zip<I> + Fold<I, I, Result = T> + Visit<I> + std::fmt::Debug> Zip<I>
     for Binders<T>
 {
     fn zip_with<'i, Z: Zipper<'i, I>>(zipper: &mut Z, a: &Self, b: &Self) -> Fallible<()>

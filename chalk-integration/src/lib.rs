@@ -40,7 +40,7 @@ impl HasInterner for Unit {
 pub struct TypeKind {
     pub sort: TypeSort,
     pub name: Identifier,
-    pub binders: Binders<Unit>,
+    pub binders: chalk_ir::VariableKinds<ChalkIr>,
 }
 
 #[derive(Copy, Clone, Debug, PartialOrd, Ord, PartialEq, Eq, Hash)]

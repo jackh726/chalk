@@ -57,6 +57,7 @@ impl RustIrDatabase<ChalkIr> for MockDatabase {
         assert_eq!(id.0.index, 0);
         Arc::new(TraitDatum {
             id,
+            params: VariableKinds::empty(&ChalkIr),
             binders: Binders::new(
                 VariableKinds::empty(&ChalkIr),
                 TraitDatumBound {

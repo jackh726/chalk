@@ -86,8 +86,10 @@ impl<I: Interner> CoherenceSolver<'_, I> {
     fn disjoint(&self, lhs: &ImplDatum<I>, rhs: &ImplDatum<I>) -> bool {
         let interner = self.db.interner();
 
-        let (lhs_binders, lhs_bound) = lhs.binders.as_ref().into();
-        let (rhs_binders, rhs_bound) = rhs.binders.as_ref().into();
+        let lhs_binders = lhs.binders.binders(interner);
+        let lhs_bound = lhs.binders.skip_binders();
+        let rhs_binders = lhs.binders.binders(interner);
+        let rhs_bound = lhs.binders.skip_binders();
 
         // Upshift the rhs variables in params to account for the joined binders
         let lhs_params = lhs_bound

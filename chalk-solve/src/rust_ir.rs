@@ -10,7 +10,7 @@ use chalk_ir::{
     visit::{Visit, VisitResult},
     AdtId, AliasEq, AliasTy, AssocTypeId, Binders, DebruijnIndex, FnDefId, GenericArg, ImplId,
     OpaqueTyId, ProjectionTy, QuantifiedWhereClause, Substitution, ToGenericArg, TraitId, TraitRef,
-    Ty, TyData, TypeName, VariableKind, WhereClause, WithKind,
+    Ty, TyData, TypeName, VariableKind, VariableKinds, WhereClause, WithKind,
 };
 use std::iter;
 
@@ -24,6 +24,7 @@ chalk_ir::id_fold!(AssociatedTyValueId);
 #[derive(Clone, Debug, PartialEq, Eq, Hash, Visit)]
 pub struct ImplDatum<I: Interner> {
     pub polarity: Polarity,
+    pub params: VariableKinds<I>,
     pub binders: Binders<ImplDatumBound<I>>,
     pub impl_type: ImplType,
     pub associated_ty_value_ids: Vec<AssociatedTyValueId<I>>,
@@ -240,6 +241,8 @@ pub struct FnDefDatumBound<I: Interner> {
 pub struct TraitDatum<I: Interner> {
     pub id: TraitId<I>,
 
+    pub params: VariableKinds<I>,
+
     pub binders: Binders<TraitDatumBound<I>>,
 
     /// "Flags" indicate special kinds of traits, like auto traits.
@@ -298,7 +301,7 @@ impl<I: Interner> TraitDatum<I> {
     }
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Hash, HasInterner, Visit)]
+#[derive(Clone, Debug, PartialEq, Eq, Fold, Hash, HasInterner, Visit)]
 pub struct TraitDatumBound<I: Interner> {
     /// Where clauses defined on the trait:
     ///
@@ -543,7 +546,8 @@ impl<I: Interner> AssociatedTyDatum<I> {
     /// these quantified where clauses are in the scope of the
     /// `binders` field.
     pub fn bounds_on_self(&self, interner: &I) -> Vec<QuantifiedWhereClause<I>> {
-        let (binders, assoc_ty_datum) = self.binders.as_ref().into();
+        let binders = self.binders.binders(interner);
+        let assoc_ty_datum = self.binders.skip_binders();
         // Create a list `P0...Pn` of references to the binders in
         // scope for this associated type:
         let substitution = Substitution::from_iter(

@@ -129,11 +129,12 @@ fn display_self_where_clauses_as_bounds<'a, I: Interner>(
                     as_display(|f| {
                         // each individual trait can have a forall
                         let s = &s.add_debrujin_index(None);
-                        if !bound.binders.is_empty(interner) {
+                        let binders = bound.binders(interner);
+                        if !binders.is_empty(interner) {
                             write!(
                                 f,
                                 "forall<{}> ",
-                                s.binder_var_display(&bound.binders)
+                                s.binder_var_display(&binders)
                                     .collect::<Vec<_>>()
                                     .join(", ")
                             )?;

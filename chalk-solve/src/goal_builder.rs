@@ -125,6 +125,14 @@ impl<'i, I: Interner> GoalBuilder<'i, I> {
     {
         let interner = self.interner();
 
+        /*
+        let binders = binders
+                .binders
+                .iter(interner)
+                .enumerate()
+                .map(|p| p.to_generic_arg(interner))
+        */
+
         // Make an identity mapping `[0 => ^0.0, 1 => ^0.1, ..]`
         // and so forth. This substitution is mapping from the `<P0..Pn>` variables
         // in `binders` to the corresponding `P0..Pn` variables we're about to
@@ -132,13 +140,8 @@ impl<'i, I: Interner> GoalBuilder<'i, I> {
         // actually an identity mapping, since this `forall` will be the innermost
         // debruijn binder and so forth, so there's no actual reason to
         // *do* the substitution, since it would effectively just be a clone.
-        let substitution = Substitution::from_iter(
+        let substitution = Substitution::empty(
             interner,
-            binders
-                .binders
-                .iter(interner)
-                .enumerate()
-                .map(|p| p.to_generic_arg(interner)),
         );
 
         // Shift passthru into one level of binder, to account for the `forall<P0..Pn>`
