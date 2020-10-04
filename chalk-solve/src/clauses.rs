@@ -749,14 +749,8 @@ fn match_ty<I: Interner>(
             .db
             .opaque_ty_data(opaque_ty.opaque_ty_id)
             .to_program_clauses(builder, environment),
-        TyData::Function(quantified_ty) => {
+        TyData::Function(_quantified_ty) => {
             builder.push_fact(WellFormed::Ty(ty.clone()));
-            quantified_ty
-                .substitution
-                .iter(interner)
-                .map(|p| p.assert_ty_ref(interner))
-                .map(|ty| match_ty(builder, environment, &ty))
-                .collect::<Result<_, Floundered>>()?;
         }
         TyData::BoundVar(_) | TyData::InferenceVar(_, _) => return Err(Floundered),
         TyData::Dyn(_) => {}

@@ -271,10 +271,14 @@ impl<I: Interner> Debug for FnPointer<I> {
             substitution,
             sig,
         } = self;
+        let safety = match sig.safety {
+            Safety::Safe => "",
+            Safety::Unsafe => "unsafe ",
+        };
         write!(
             fmt,
-            "for<{}> {:?} {:?} {:?}",
-            num_binders, sig.safety, sig.abi, substitution
+            "{:?}\"{:?}\" for<{:?}> {:?}",
+            safety, sig.abi, num_binders, substitution
         )
     }
 }
