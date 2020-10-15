@@ -199,3 +199,58 @@ impl<'i, I: Interner> Folder<'i, I> for SynEqFolder<'i, I> {
         self.interner
     }
 }
+
+#[cfg(test)]
+mod test {
+    use super::*;
+    use chalk_integration::interner::{ChalkIr, NoopDebugContext};
+    use chalk_integration::tls;
+    use chalk_integration::{arg, domain_goal, trait_name, ty};
+    use chalk_ir::cast::Cast;
+    use chalk_ir::{
+        Binders, ClausePriority, Constraints, EqGoal, Goal, GoalData, ProgramClause,
+        ProgramClauseData, ProgramClauseImplication, TyKind, VariableKind,
+    };
+    use std::sync::Arc;
+
+    #[test]
+    fn test_sem_syn_lowering() {
+        tls::set_current_program(&Arc::new(NoopDebugContext), || {
+            let interner = &ChalkIr;
+            let clause = ProgramClauseImplication {
+                consequence: domain_goal!(holds implemented 0 (projection (item 0))),
+                conditions: Goals::empty(interner),
+                constraints: Constraints::empty(interner),
+                priority: ClausePriority::High,
+            };
+            let clause = ProgramClause::new(
+                interner,
+                ProgramClauseData(Binders::empty(interner, clause)),
+            );
+
+            let new_clause = syn_eq_lower(interner, &clause);
+
+            let expected_clause = ProgramClauseImplication {
+                consequence: domain_goal!(holds implemented 0 (bound 0 0)),
+                conditions: Goals::from1(
+                    interner,
+                    GoalData::EqGoal(EqGoal {
+                        a: ty!(bound 0 0 ).cast(interner),
+                        b: ty!(projection (item 0)).cast(interner),
+                    })
+                    .intern(interner),
+                ),
+                constraints: Constraints::empty(interner),
+                priority: ClausePriority::High,
+            };
+            let expected_clause = ProgramClause::new(
+                interner,
+                ProgramClauseData(Binders::new(
+                    chalk_ir::VariableKinds::from1(interner, VariableKind::Ty(TyKind::General)),
+                    expected_clause,
+                )),
+            );
+            assert_eq!(new_clause, expected_clause);
+        })
+    }
+}

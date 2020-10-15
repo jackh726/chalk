@@ -368,3 +368,224 @@ impl Interner for ChalkIr {
 impl HasInterner for ChalkIr {
     type Interner = ChalkIr;
 }
+
+pub struct NoopDebugContext;
+
+impl NoopDebugContext {
+    fn interner(&self) -> &ChalkIr {
+        &ChalkIr
+    }
+}
+
+impl tls::DebugContext for NoopDebugContext {
+    fn debug_adt_id(
+        &self,
+        adt_id: AdtId<ChalkIr>,
+        fmt: &mut fmt::Formatter<'_>,
+    ) -> Result<(), fmt::Error> {
+        fmt.debug_struct("AdtId").field("index", &adt_id.0).finish()
+    }
+
+    fn debug_trait_id(
+        &self,
+        trait_id: TraitId<ChalkIr>,
+        fmt: &mut fmt::Formatter<'_>,
+    ) -> Result<(), fmt::Error> {
+        fmt.debug_struct("TraitId")
+            .field("index", &trait_id.0)
+            .finish()
+    }
+
+    fn debug_assoc_type_id(
+        &self,
+        assoc_type_id: AssocTypeId<ChalkIr>,
+        fmt: &mut fmt::Formatter<'_>,
+    ) -> Result<(), fmt::Error> {
+        fmt.debug_struct("AssocTypeId")
+            .field("index", &assoc_type_id.0)
+            .finish()
+    }
+
+    fn debug_opaque_ty_id(
+        &self,
+        opaque_ty_id: OpaqueTyId<ChalkIr>,
+        fmt: &mut fmt::Formatter<'_>,
+    ) -> Result<(), fmt::Error> {
+        fmt.debug_struct("OpaqueTyId")
+            .field("index", &opaque_ty_id.0)
+            .finish()
+    }
+
+    fn debug_fn_def_id(
+        &self,
+        fn_def_id: FnDefId<ChalkIr>,
+        fmt: &mut fmt::Formatter<'_>,
+    ) -> Result<(), fmt::Error> {
+        fmt.debug_struct("FnDefId")
+            .field("index", &fn_def_id.0)
+            .finish()
+    }
+
+    fn debug_alias(
+        &self,
+        alias_ty: &AliasTy<ChalkIr>,
+        fmt: &mut fmt::Formatter<'_>,
+    ) -> Result<(), fmt::Error> {
+        match alias_ty {
+            AliasTy::Projection(projection_ty) => self.debug_projection_ty(projection_ty, fmt),
+            AliasTy::Opaque(opaque_ty) => self.debug_opaque_ty(opaque_ty, fmt),
+        }
+    }
+
+    fn debug_projection_ty(
+        &self,
+        projection_ty: &ProjectionTy<ChalkIr>,
+        fmt: &mut fmt::Formatter<'_>,
+    ) -> Result<(), fmt::Error> {
+        write!(
+            fmt,
+            "ProjectionTy({:?}. {:?})",
+            projection_ty.associated_ty_id.0,
+            projection_ty.substitution.debug(&ChalkIr),
+        )
+    }
+
+    fn debug_opaque_ty(
+        &self,
+        opaque_ty: &OpaqueTy<ChalkIr>,
+        fmt: &mut fmt::Formatter<'_>,
+    ) -> Result<(), fmt::Error> {
+        write!(fmt, "{:?}", opaque_ty.opaque_ty_id)
+    }
+
+    fn debug_ty(&self, ty: &Ty<ChalkIr>, fmt: &mut fmt::Formatter<'_>) -> Result<(), fmt::Error> {
+        let interner = self.interner();
+        write!(fmt, "{:?}", ty.data(interner))
+    }
+
+    fn debug_lifetime(
+        &self,
+        lifetime: &Lifetime<ChalkIr>,
+        fmt: &mut fmt::Formatter<'_>,
+    ) -> Result<(), fmt::Error> {
+        let interner = self.interner();
+        write!(fmt, "{:?}", lifetime.data(interner))
+    }
+
+    fn debug_generic_arg(
+        &self,
+        generic_arg: &GenericArg<ChalkIr>,
+        fmt: &mut fmt::Formatter<'_>,
+    ) -> Result<(), fmt::Error> {
+        let interner = self.interner();
+        write!(fmt, "{:?}", generic_arg.data(interner).inner_debug())
+    }
+
+    fn debug_variable_kinds(
+        &self,
+        variable_kinds: &chalk_ir::VariableKinds<ChalkIr>,
+        fmt: &mut fmt::Formatter<'_>,
+    ) -> Result<(), fmt::Error> {
+        let interner = self.interner();
+        write!(fmt, "{:?}", variable_kinds.as_slice(interner))
+    }
+
+    fn debug_variable_kinds_with_angles(
+        &self,
+        variable_kinds: &chalk_ir::VariableKinds<ChalkIr>,
+        fmt: &mut fmt::Formatter<'_>,
+    ) -> Result<(), fmt::Error> {
+        let interner = self.interner();
+        write!(fmt, "{:?}", variable_kinds.inner_debug(interner))
+    }
+
+    fn debug_canonical_var_kinds(
+        &self,
+        variable_kinds: &chalk_ir::CanonicalVarKinds<ChalkIr>,
+        fmt: &mut fmt::Formatter<'_>,
+    ) -> Result<(), fmt::Error> {
+        let interner = self.interner();
+        write!(fmt, "{:?}", variable_kinds.as_slice(interner))
+    }
+
+    fn debug_goal(
+        &self,
+        goal: &Goal<ChalkIr>,
+        fmt: &mut fmt::Formatter<'_>,
+    ) -> Result<(), fmt::Error> {
+        let interner = self.interner();
+        write!(fmt, "{:?}", goal.data(interner))
+    }
+
+    fn debug_goals(
+        &self,
+        goals: &Goals<ChalkIr>,
+        fmt: &mut fmt::Formatter<'_>,
+    ) -> Result<(), fmt::Error> {
+        let interner = self.interner();
+        write!(fmt, "{:?}", goals.debug(interner))
+    }
+
+    fn debug_program_clause_implication(
+        &self,
+        pci: &ProgramClauseImplication<ChalkIr>,
+        fmt: &mut fmt::Formatter<'_>,
+    ) -> Result<(), fmt::Error> {
+        let interner = self.interner();
+        write!(fmt, "{:?}", pci.debug(interner))
+    }
+
+    fn debug_program_clause(
+        &self,
+        clause: &ProgramClause<ChalkIr>,
+        fmt: &mut fmt::Formatter<'_>,
+    ) -> Result<(), fmt::Error> {
+        let interner = self.interner();
+        write!(fmt, "{:?}", clause.data(interner))
+    }
+
+    fn debug_program_clauses(
+        &self,
+        clauses: &ProgramClauses<ChalkIr>,
+        fmt: &mut fmt::Formatter<'_>,
+    ) -> Result<(), fmt::Error> {
+        let interner = self.interner();
+        write!(fmt, "{:?}", clauses.as_slice(interner))
+    }
+
+    fn debug_application_ty(
+        &self,
+        application_ty: &ApplicationTy<ChalkIr>,
+        fmt: &mut fmt::Formatter<'_>,
+    ) -> Result<(), fmt::Error> {
+        let interner = self.interner();
+        write!(fmt, "{:?}", application_ty.debug(interner))
+    }
+
+    fn debug_substitution(
+        &self,
+        substitution: &Substitution<ChalkIr>,
+        fmt: &mut fmt::Formatter<'_>,
+    ) -> Result<(), fmt::Error> {
+        let interner = self.interner();
+        write!(fmt, "{:?}", substitution.debug(interner))
+    }
+
+    fn debug_separator_trait_ref(
+        &self,
+        separator_trait_ref: &SeparatorTraitRef<'_, ChalkIr>,
+        fmt: &mut fmt::Formatter<'_>,
+    ) -> Result<(), fmt::Error> {
+        let interner = self.interner();
+        write!(fmt, "{:?}", separator_trait_ref.debug(interner))
+    }
+
+    fn debug_quantified_where_clauses(
+        &self,
+        clauses: &chalk_ir::QuantifiedWhereClauses<ChalkIr>,
+        fmt: &mut fmt::Formatter<'_>,
+    ) -> Result<(), fmt::Error> {
+        let interner = self.interner();
+        write!(fmt, "{:?}", clauses.as_slice(interner))
+    }
+}

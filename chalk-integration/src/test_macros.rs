@@ -35,8 +35,8 @@ macro_rules! ty {
     };
 
     (projection (item $n:tt) $($arg:tt)*) => {
-            chalk_ir::AliasTy::Projection(chalk_ir::ProjectionTy  {
-            associated_ty_id: AssocTypeId(chalk_integration::interner::RawId { index: $n }),
+        chalk_ir::AliasTy::Projection(chalk_ir::ProjectionTy  {
+            associated_ty_id: chalk_ir::AssocTypeId(chalk_integration::interner::RawId { index: $n }),
             substitution: chalk_ir::Substitution::from_iter(
                 &chalk_integration::interner::ChalkIr,
                 vec![$(arg!($arg)),*] as Vec<chalk_ir::GenericArg<_>>
@@ -123,4 +123,28 @@ macro_rules! ty_name {
             index: $n,
         }))
     };
+}
+
+#[macro_export]
+macro_rules! trait_name {
+    ($n:expr) => {
+        chalk_ir::TraitId(chalk_integration::interner::RawId { index: $n })
+    };
+}
+
+#[macro_export]
+macro_rules! domain_goal {
+    (holds implemented $n:tt $($arg:tt)*) => {
+        chalk_ir::DomainGoal::Holds(
+            chalk_ir::WhereClause::Implemented(
+                chalk_ir::TraitRef {
+                    trait_id: trait_name!($n),
+                    substitution: chalk_ir::Substitution::from_iter(
+                        &chalk_integration::interner::ChalkIr,
+                        vec![$(arg!($arg)),*] as Vec<chalk_ir::GenericArg<_>>
+                    ),
+                },
+            ),
+        )
+    }
 }
