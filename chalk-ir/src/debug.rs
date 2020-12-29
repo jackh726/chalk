@@ -448,15 +448,24 @@ impl<'a, I: Interner> Debug for ProgramClauseImplicationDebug<'a, I> {
         let conditions = pci.conditions.as_slice(interner);
 
         let conds = conditions.len();
-        if conds == 0 {
-            return Ok(());
+        if conds != 0 {
+            write!(fmt, " :- ")?;
+            for cond in &conditions[..conds - 1] {
+                write!(fmt, "{:?}, ", cond)?;
+            }
+            write!(fmt, "{:?}", conditions[conds - 1])?;
         }
 
-        write!(fmt, " :- ")?;
-        for cond in &conditions[..conds - 1] {
-            write!(fmt, "{:?}, ", cond)?;
+        let constraints = pci.constraints.as_slice(interner);
+        let cons = constraints.len();
+        if cons != 0 {
+            write!(fmt, "; ")?;
+            for cond in &constraints[..cons - 1] {
+                write!(fmt, "{:?}, ", cond)?;
+            }
+            write!(fmt, "{:?}", constraints[cons - 1])?;
         }
-        write!(fmt, "{:?}", conditions[conds - 1])
+        Ok(())
     }
 }
 
