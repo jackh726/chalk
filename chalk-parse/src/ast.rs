@@ -124,6 +124,7 @@ pub struct ClosureDefn {
     pub argument_types: Vec<Ty>,
     pub return_type: Ty,
     pub upvars: Vec<Ty>,
+    pub fn_sig: Option<(Vec<VariableKind>, Ty)>,
 }
 
 #[derive(Clone, Eq, PartialEq, Debug)]

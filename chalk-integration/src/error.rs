@@ -96,6 +96,9 @@ pub enum RustIrError {
         expected: Kind,
         actual: Kind,
     },
+    InvalidClosureSig {
+        identifier: Identifier,
+    },
     CannotApplyTypeParameter(Identifier),
     InvalidExternAbi(Atom),
 }
@@ -196,6 +199,7 @@ impl std::fmt::Display for RustIrError {
                 "incorrect associated type parameter kind for `{}`: expected {}, found {}",
                 identifier, expected, actual
             ),
+            RustIrError::InvalidClosureSig { identifier } => write!(f, "incorrect closure signature for `{}`", identifier),
             RustIrError::CannotApplyTypeParameter(name) => {
                 write!(f, "cannot apply type parameter `{}`", name)
             }

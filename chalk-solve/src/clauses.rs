@@ -160,10 +160,10 @@ pub fn push_auto_trait_impls<I: Interner>(
         TyKind::Foreign(_) => Ok(()),
 
         // closures require binders, while the other types do not
-        TyKind::Closure(closure_id, _) => {
+        TyKind::Closure(closure_id, substs) => {
             let binders = builder
                 .db
-                .closure_upvars(*closure_id, &Substitution::empty(interner));
+                .closure_upvars(*closure_id, substs);
             builder.push_binders(binders, |builder, upvar_ty| {
                 let conditions = iter::once(mk_ref(upvar_ty));
                 builder.push_clause(consequence, conditions);
@@ -968,6 +968,12 @@ fn match_ty<I: Interner>(
                 })
             }));
 
+            // trait StreamingIterator {
+            //   type Item<'a> where Self: 'a;   
+            // }
+            // WellFormed(dyn for<'a> StreamingIterator<Item<'a> = &'a ()>) :-
+            //   WellFormed(dyn for<'a> StreamingIterator<Item<'a> = &'a ()>: StreamingIterator),
+            //   forall<'l> { (dyn for<'a> StreamingIterator<Item<'a> = &'a ()>): 'l }
             builder.push_clause(WellFormed::Ty(ty.clone()), wf_goals);
         }
     })

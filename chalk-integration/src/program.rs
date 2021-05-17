@@ -6,7 +6,7 @@ use chalk_ir::{
     debug::SeparatorTraitRef, AdtId, AliasTy, AssocTypeId, Binders, CanonicalVarKinds, ClosureId,
     FnDefId, ForeignDefId, GeneratorId, GenericArg, Goal, Goals, ImplId, IntTy, Lifetime, OpaqueTy,
     OpaqueTyId, ProgramClause, ProgramClauseImplication, ProgramClauses, ProjectionTy, Scalar,
-    Substitution, TraitId, Ty, TyKind, UintTy, Variances,
+    Substitution, TraitId, Ty, TyKind, UintTy, VariableKind, VariableKinds, Variances,
 };
 use chalk_solve::rust_ir::{
     AdtDatum, AdtRepr, AssociatedTyDatum, AssociatedTyValue, AssociatedTyValueId, ClosureKind,
@@ -64,7 +64,7 @@ pub struct Program {
     pub fn_def_data: BTreeMap<FnDefId<ChalkIr>, Arc<FnDefDatum<ChalkIr>>>,
 
     pub closure_inputs_and_output:
-        BTreeMap<ClosureId<ChalkIr>, Binders<FnDefInputsAndOutputDatum<ChalkIr>>>,
+        BTreeMap<ClosureId<ChalkIr>, Binders<Binders<Binders<FnDefInputsAndOutputDatum<ChalkIr>>>>>,
 
     // Weird name, but otherwise would overlap with `closure_kinds` above.
     pub closure_closure_kind: BTreeMap<ClosureId<ChalkIr>, ClosureKind>,
@@ -543,25 +543,60 @@ impl RustIrDatabase<ChalkIr> for Program {
     fn closure_inputs_and_output(
         &self,
         closure_id: ClosureId<ChalkIr>,
-        _substs: &Substitution<ChalkIr>,
+        substs: &Substitution<ChalkIr>,
     ) -> Binders<FnDefInputsAndOutputDatum<ChalkIr>> {
-        self.closure_inputs_and_output[&closure_id].clone()
+        // First binder is the "outer scope"
+        let binders = self.closure_inputs_and_output[&closure_id].skip_binders().clone();
+        let fn_subst = self.closure_fn_substitution(closure_id, substs);
+        dbg!(substs, &fn_subst);
+        let sig = &substs.as_slice(&ChalkIr)[substs.len(&ChalkIr) - 2];
+        match sig.assert_ty_ref(&ChalkIr).kind(&ChalkIr) {
+            TyKind::Function(f) => {
+                let substitution = f.substitution.0.as_slice(&ChalkIr);
+                let return_type = substitution.last().unwrap().assert_ty_ref(&ChalkIr).clone();
+                let argument_types = substitution[0..substitution.len()-1]
+                    .iter()
+                    .map(|arg| arg.assert_ty_ref(&ChalkIr))
+                    .cloned()
+                    .collect();
+
+                binders.substitute(&ChalkIr, &fn_subst).map_ref(|_| {
+                    FnDefInputsAndOutputDatum {
+                        argument_types,
+                        return_type,
+                    }
+                })
+            }
+            _ => panic!("Invalid sig."),
+        }
     }
 
     fn closure_kind(
         &self,
-        closure_id: ClosureId<ChalkIr>,
-        _substs: &Substitution<ChalkIr>,
+        _closure_id: ClosureId<ChalkIr>,
+        substs: &Substitution<ChalkIr>,
     ) -> ClosureKind {
-        self.closure_closure_kind[&closure_id]
+        let kind = &substs.as_slice(&ChalkIr)[substs.len(&ChalkIr) - 3];
+        match kind.assert_ty_ref(&ChalkIr).kind(&ChalkIr) {
+            TyKind::Scalar(Scalar::Int(IntTy::I8)) => ClosureKind::Fn,
+            TyKind::Scalar(Scalar::Int(IntTy::I16)) => ClosureKind::FnMut,
+            TyKind::Scalar(Scalar::Int(IntTy::I32)) => ClosureKind::FnOnce,
+            _ => panic!("bad closure kind"),
+        }
     }
 
     fn closure_upvars(
         &self,
         closure_id: ClosureId<ChalkIr>,
-        _substs: &Substitution<ChalkIr>,
+        substs: &Substitution<ChalkIr>,
     ) -> Binders<Ty<ChalkIr>> {
-        self.closure_upvars[&closure_id].clone()
+        let inputs_and_output = self.closure_inputs_and_output(closure_id, substs);
+        let tuple = substs
+            .as_slice(&ChalkIr)
+            .last()
+            .unwrap()
+            .assert_ty_ref(&ChalkIr);
+        inputs_and_output.map_ref(|_| tuple.clone())
     }
 
     fn closure_fn_substitution(
@@ -569,7 +604,8 @@ impl RustIrDatabase<ChalkIr> for Program {
         _closure_id: ClosureId<ChalkIr>,
         substs: &Substitution<ChalkIr>,
     ) -> Substitution<ChalkIr> {
-        substs.clone()
+        let substitution = &substs.as_slice(&ChalkIr)[0..substs.len(&ChalkIr) - 3];
+        chalk_ir::Substitution::from_iter(&ChalkIr, substitution)
     }
 
     fn unification_database(&self) -> &dyn UnificationDatabase<ChalkIr> {

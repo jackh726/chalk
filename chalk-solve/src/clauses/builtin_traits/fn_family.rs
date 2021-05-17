@@ -57,6 +57,7 @@ fn push_clauses_for_apply<I: Interner>(
     inputs_and_output: Binders<FnDefInputsAndOutputDatum<I>>,
 ) {
     let interner = db.interner();
+    dbg!(&inputs_and_output);
     builder.push_binders(inputs_and_output, |builder, inputs_and_output| {
         let arg_sub = inputs_and_output
             .argument_types
@@ -122,7 +123,10 @@ pub fn add_fn_trait_program_clauses<I: Interner>(
                 return Ok(());
             }
             let closure_inputs_and_output =
-                db.closure_inputs_and_output(*closure_id, &substitution);
+                db.closure_inputs_and_output(*closure_id, &substitution).clone();
+            //let closure_substitution = db.closure_fn_substitution(*closure_id, &substitution);
+            //let closure_inputs_and_output = closure_inputs_and_output
+                //.substitute(builder.interner(), &closure_substitution);
             push_clauses_for_apply(
                 db,
                 builder,

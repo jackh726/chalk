@@ -70,7 +70,7 @@ impl SolverChoice {
 
     /// Returns the default SLG parameters.
     pub fn slg_default() -> Self {
-        SolverChoice::slg(10, None)
+        SolverChoice::slg(20, None)
     }
 
     /// Returns the default recursive solver setup.

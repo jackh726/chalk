@@ -3,13 +3,14 @@ use chalk_ir::{
     self, AdtId, BoundVar, ClosureId, DebruijnIndex, FnDefId, GeneratorId, OpaqueTyId, TraitId,
     VariableKinds,
 };
-use chalk_ir::{cast::Cast, ForeignDefId, WithKind};
+use chalk_ir::{cast::{Cast, Caster}, ForeignDefId, WithKind};
 use chalk_parse::ast::*;
 use chalk_solve::rust_ir::AssociatedTyValueId;
 use std::collections::BTreeMap;
 
 use crate::error::RustIrError;
 use crate::interner::ChalkIr;
+use crate::program::Program as LoweredProgram;
 use crate::{Identifier as Ident, TypeKind};
 
 pub type AdtIds = BTreeMap<Ident, chalk_ir::AdtId<ChalkIr>>;
@@ -54,6 +55,7 @@ pub struct Env<'k> {
     /// GenericArg identifiers are used as keys, therefore
     /// all identifiers in an environment must be unique (no shadowing).
     pub parameter_map: ParameterMap,
+    pub program: Option<&'k LoweredProgram>,
 }
 
 /// Information about an associated type **declaration** (i.e., an
@@ -132,7 +134,67 @@ impl Env<'_> {
             }
             Ok(TypeLookup::Adt(id)) => tykind!(self.adt_kind(id), Adt, id),
             Ok(TypeLookup::FnDef(id)) => tykind!(self.fn_def_kind(id), FnDef, id),
-            Ok(TypeLookup::Closure(id)) => tykind!(self.closure_kind(id), Closure, id),
+            Ok(TypeLookup::Closure(id)) => {
+                let program = self.program.as_ref().unwrap();
+                let kind = &program.closure_closure_kind[&id];
+                let kind = match kind {
+                    chalk_solve::rust_ir::ClosureKind::Fn => {
+                        chalk_ir::TyKind::Scalar(chalk_ir::Scalar::Int(chalk_ir::IntTy::I8))
+                    }
+                    chalk_solve::rust_ir::ClosureKind::FnMut => {
+                        chalk_ir::TyKind::Scalar(chalk_ir::Scalar::Int(chalk_ir::IntTy::I16))
+                    }
+                    chalk_solve::rust_ir::ClosureKind::FnOnce => {
+                        chalk_ir::TyKind::Scalar(chalk_ir::Scalar::Int(chalk_ir::IntTy::I32))
+                    }
+                }
+                .intern(&ChalkIr)
+                .cast(&ChalkIr);
+                let inputs_and_output = &program.closure_inputs_and_output[&id];
+                let inputs_and_output = chalk_ir::TyKind::Function(chalk_ir::FnPointer {
+                    num_binders: inputs_and_output.skip_binders().len(&ChalkIr),
+                    sig: chalk_ir::FnSig {
+                        abi: crate::interner::ChalkFnAbi::Rust,
+                        safety: chalk_ir::Safety::Safe,
+                        variadic: false,
+                    },
+                    substitution: chalk_ir::FnSubst(chalk_ir::Substitution::from_iter(
+                        &ChalkIr,
+                        inputs_and_output
+                            .skip_binders()
+                            .skip_binders()
+                            .skip_binders()
+                            .argument_types
+                            .iter()
+                            .cloned()
+                            .casted(&ChalkIr)
+                            .chain(
+                                Some(
+                                    inputs_and_output
+                                        .skip_binders()
+                                        .skip_binders()
+                                        .skip_binders()
+                                        .return_type
+                                        .clone()
+                                        .cast(&ChalkIr),
+                                )
+                                .into_iter(),
+                            ),
+                    )),
+                })
+                .intern(&ChalkIr)
+                .cast(&ChalkIr);
+                let upvars = &program.closure_upvars[&id];
+                let upvars = upvars.skip_binders().clone().cast(&ChalkIr);
+                let substs = std::iter::empty()
+                    .chain(Some(Ok(kind)).into_iter()) // CK
+                    .chain(Some(Ok(inputs_and_output)).into_iter()) // CS
+                    .chain(Some(Ok(upvars)).into_iter()); // U
+                let substitution = chalk_ir::Substitution::from_fallible(interner, substs)?;
+
+                dbg!(&substitution);
+                Ok(chalk_ir::TyKind::Closure(id, substitution).intern(interner).cast(interner))
+            }
             Ok(TypeLookup::Generator(id)) => tykind!(self.generator_kind(id), Generator, id),
             Ok(TypeLookup::Opaque(id)) => Ok(chalk_ir::TyKind::Alias(chalk_ir::AliasTy::Opaque(
                 chalk_ir::OpaqueTy {

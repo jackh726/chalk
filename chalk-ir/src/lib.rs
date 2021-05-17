@@ -1449,17 +1449,17 @@ impl<I: Interner> GenericArg<I> {
 
     /// Asserts that this is a type argument.
     pub fn assert_ty_ref(&self, interner: &I) -> &Ty<I> {
-        self.ty(interner).unwrap()
+        self.ty(interner).expect(&format!("Expected a ty, got {:?}.", self))
     }
 
     /// Asserts that this is a lifetime argument.
     pub fn assert_lifetime_ref(&self, interner: &I) -> &Lifetime<I> {
-        self.lifetime(interner).unwrap()
+        self.lifetime(interner).expect("Expected a lifetime.")
     }
 
     /// Asserts that this is a constant argument.
     pub fn assert_const_ref(&self, interner: &I) -> &Const<I> {
-        self.constant(interner).unwrap()
+        self.constant(interner).expect("Expected a const.")
     }
 
     /// Checks whether the generic argument is a type.

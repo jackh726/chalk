@@ -178,6 +178,7 @@ impl ProgramLowerer {
                 parameter_map: BTreeMap::new(),
                 auto_traits: &self.auto_traits,
                 foreign_ty_ids: &self.foreign_ty_ids,
+                program: None,
             };
 
             match *item {

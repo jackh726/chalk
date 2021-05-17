@@ -229,7 +229,7 @@ FnArgs: FnArgs = {
 };
 
 ClosureDefn: ClosureDefn = {
-    "closure" <n:Id> <p:Angle<VariableKind>> "(" <s:ClosureSelf> <args:ClosureArgs> ")" <ret_ty:FnReturn?>
+    "closure" <n:Id> <fn_sig:ClosureOptFnSig?> <p:Angle<VariableKind>> "(" <s:ClosureSelf> <args:ClosureArgs> ")" <ret_ty:FnReturn?>
         "{" <upvars:SemiColon<Ty>> "}" => ClosureDefn {
         name: n,
         kind: s,
@@ -237,7 +237,12 @@ ClosureDefn: ClosureDefn = {
         argument_types: args,
         return_type: ret_ty.unwrap_or_else(|| Ty::Tuple { types: Vec::new() }),
         upvars: upvars,
+        fn_sig: fn_sig,
     }
+}
+
+ClosureOptFnSig: (Vec<VariableKind>, Ty) = {
+    "[" <pk:Comma<VariableKind>> ";" <s:Ty> "]" => (pk, s),
 }
 
 ClosureSelf: ClosureKind = {

@@ -27,6 +27,7 @@ pub fn needs_truncation<I: Interner>(
     let mut visitor = TySizeVisitor::new(interner, infer);
     value.visit_with(&mut visitor, DebruijnIndex::INNERMOST);
 
+    tracing::debug!("{:?} needs truncation: {:?}", value, visitor.max_size > max_size);
     visitor.max_size > max_size
 }
 

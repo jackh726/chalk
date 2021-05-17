@@ -394,20 +394,52 @@ impl Lower for FnAbi {
 impl LowerWithEnv for ClosureDefn {
     type Lowered = (
         rust_ir::ClosureKind,
-        chalk_ir::Binders<rust_ir::FnDefInputsAndOutputDatum<ChalkIr>>,
+        chalk_ir::Binders<chalk_ir::Binders<chalk_ir::Binders<rust_ir::FnDefInputsAndOutputDatum<ChalkIr>>>>,
     );
 
     fn lower(&self, env: &Env) -> LowerResult<Self::Lowered> {
-        let inputs_and_output = env.in_binders(self.all_parameters(), |env| {
-            let args: LowerResult<_> = self.argument_types.iter().map(|t| t.lower(env)).collect();
-            let return_type = self.return_type.lower(env)?;
-            Ok(rust_ir::FnDefInputsAndOutputDatum {
-                argument_types: args?,
-                return_type,
-            })
-        })?;
-
-        Ok((self.kind.lower(), inputs_and_output))
+        match &self.fn_sig {
+            Some((kinds, ty)) => {
+                let outer: Vec<_> = kinds.into_iter().map(|k| k.lower()).collect();
+                let inputs_and_output = env.in_binders(outer, |env| {
+                    env.in_binders(self.all_parameters(), |env| {
+                        let lowered = ty.lower(env)?;
+                        match lowered.kind(&ChalkIr) {
+                            chalk_ir::TyKind::Function(func) => {
+                                Ok(func.clone().into_binders(&ChalkIr).map(|subst| {
+                                    let subst = func.substitution.0.as_slice(&ChalkIr);
+                                    let return_type = subst.last().unwrap().assert_ty_ref(&ChalkIr).clone();
+                                    let argument_types = subst[..subst.len()-1].iter().map(|g| g.assert_ty_ref(&ChalkIr).clone()).collect();
+                                    rust_ir::FnDefInputsAndOutputDatum {
+                                        argument_types,
+                                        return_type,
+                                    }
+                                }))
+                            }
+                            _ => Err(RustIrError::InvalidClosureSig { identifier: self.name.clone() }),
+                        }
+                    })
+                })?;
+        
+                Ok((self.kind.lower(), inputs_and_output))
+            }
+            None => {
+                let inputs_and_output = env.in_binders(None, |env| {
+                    env.in_binders(self.all_parameters(), |env| {
+                        env.in_binders(None, |env| {
+                            let args: LowerResult<_> = self.argument_types.iter().map(|t| t.lower(env)).collect();
+                            let return_type = self.return_type.lower(env)?;
+                            Ok(rust_ir::FnDefInputsAndOutputDatum {
+                                argument_types: args?,
+                                return_type,
+                            })
+                        })
+                    })
+                })?;
+        
+                Ok((self.kind.lower(), inputs_and_output))
+            }
+        }
     }
 }
 
@@ -742,7 +774,98 @@ impl LowerWithEnv for Ty {
                     }
                     TypeLookup::Adt(id) => tykind!(env.adt_kind(id), Adt, id),
                     TypeLookup::FnDef(id) => tykind!(env.fn_def_kind(id), FnDef, id),
-                    TypeLookup::Closure(id) => tykind!(env.closure_kind(id), Closure, id),
+                    TypeLookup::Closure(id) => {
+                        let program = env.program.as_ref().unwrap();
+                        let kind = &program.closure_closure_kind[&id];
+                        let kind = match kind {
+                            chalk_solve::rust_ir::ClosureKind::Fn => {
+                                chalk_ir::TyKind::Scalar(chalk_ir::Scalar::Int(chalk_ir::IntTy::I8))
+                            }
+                            chalk_solve::rust_ir::ClosureKind::FnMut => chalk_ir::TyKind::Scalar(
+                                chalk_ir::Scalar::Int(chalk_ir::IntTy::I16),
+                            ),
+                            chalk_solve::rust_ir::ClosureKind::FnOnce => chalk_ir::TyKind::Scalar(
+                                chalk_ir::Scalar::Int(chalk_ir::IntTy::I32),
+                            ),
+                        }
+                        .intern(&ChalkIr)
+                        .cast(&ChalkIr);
+                        let inputs_and_output = &program.closure_inputs_and_output[&id];
+
+                        if (inputs_and_output.binders.len(&ChalkIr) + env.closure_kind(id).binders.len(interner)) != args.len() {
+                            Err(RustIrError::IncorrectNumberOfTypeParameters {
+                                identifier: name.clone(),
+                                expected: inputs_and_output.binders.len(&ChalkIr) + env.closure_kind(id).binders.len(interner),
+                                actual: args.len(),
+                            })?;
+                        }
+                        let (outer_args, inner_args) = args.split_at(inputs_and_output.binders.len(&ChalkIr));
+                        let outer_args = outer_args.iter().map(|t| t.lower(env)).collect::<Result<Vec<_>, _>>()?;
+
+                        let inputs_and_output = chalk_ir::TyKind::Function(chalk_ir::FnPointer {
+                            num_binders: inputs_and_output.skip_binders().len(&ChalkIr),
+                            sig: chalk_ir::FnSig {
+                                abi: ChalkFnAbi::Rust,
+                                safety: chalk_ir::Safety::Safe,
+                                variadic: false,
+                            },
+                            substitution: chalk_ir::FnSubst(chalk_ir::Substitution::from_iter(
+                                &ChalkIr,
+                                inputs_and_output
+                                    .clone()
+                                    .substitute(&ChalkIr, &outer_args)
+                                    .skip_binders()
+                                    .skip_binders()
+                                    .argument_types
+                                    .iter()
+                                    .cloned()
+                                    .casted(&ChalkIr)
+                                    .chain(
+                                        Some(
+                                            inputs_and_output
+                                                .clone()
+                                                .substitute(&ChalkIr, &outer_args)
+                                                .skip_binders()
+                                                .skip_binders()
+                                                .return_type
+                                                .clone()
+                                                .cast(&ChalkIr),
+                                        )
+                                        .into_iter(),
+                                    ),
+                            )),
+                        })
+                        .intern(&ChalkIr)
+                        .cast(&ChalkIr);
+                        let upvars = &program.closure_upvars[&id];
+                        let upvars = upvars.skip_binders().clone().cast(&ChalkIr);
+                        let substs = inner_args
+                            .iter()
+                            //.map(|t| Ok(env.in_binders(None, |env| t.lower(env))?.into_value_and_skipped_binders().0))
+                            .map(|t| t.lower(env))
+                            .chain(Some(Ok(kind)).into_iter()) // CK
+                            .chain(Some(Ok(inputs_and_output)).into_iter()) // CS
+                            .chain(Some(Ok(upvars)).into_iter()); // U
+                        let substitution = chalk_ir::Substitution::from_fallible(interner, substs)?;
+
+                        for (param, arg) in env
+                            .closure_kind(id)
+                            .binders
+                            .binders
+                            .iter(interner)
+                            .zip(substitution.iter(interner))
+                        {
+                            if param.kind() != arg.kind() {
+                                Err(RustIrError::IncorrectParameterKind {
+                                    identifier: name.clone(),
+                                    expected: param.kind(),
+                                    actual: arg.kind(),
+                                })?;
+                            }
+                        }
+                        dbg!(&substitution);
+                        chalk_ir::TyKind::Closure(id, substitution).intern(interner)
+                    }
                     TypeLookup::Opaque(id) => tykind!(env.opaque_kind(id), OpaqueType, id),
                     TypeLookup::Generator(id) => tykind!(env.generator_kind(id), Generator, id),
                     TypeLookup::Foreign(_) | TypeLookup::Trait(_) => {
@@ -1054,6 +1177,7 @@ pub fn lower_goal(goal: &Goal, program: &LoweredProgram) -> LowerResult<chalk_ir
         foreign_ty_ids: &program.foreign_ty_ids,
         parameter_map: BTreeMap::new(),
         auto_traits: &auto_traits,
+        program: Some(program),
     };
 
     goal.lower(&env)

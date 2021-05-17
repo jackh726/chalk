@@ -62,6 +62,7 @@ impl<I: Interner> GoalExt<I> for Goal<I> {
     /// variables. Assumes that this goal is a "closed goal" which
     /// does not -- at present -- contain any variables. Useful for
     /// REPLs and tests but not much else.
+    #[tracing::instrument(level = "debug", skip(interner))]
     fn into_peeled_goal(self, interner: &I) -> UCanonical<InEnvironment<Goal<I>>> {
         let mut infer = InferenceTable::new();
         let peeled_goal = {

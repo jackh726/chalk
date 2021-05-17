@@ -828,3 +828,75 @@ fn env_bound_vars() {
         }
     }
 }
+
+#[test]
+fn closures_special() {
+    test! {
+        program {
+            #[lang(fn_once)]
+            trait FnOnce<Args> {
+                type Output;
+            }
+
+            closure bar[T; for<'a> fn(&'a T)](self,) {}
+        }
+        goal {
+            exists<'a, T> {
+                bar<T>: FnOnce<(&'a T)>
+            }
+        } yields {
+            ""
+        }
+    }
+}
+#[test]
+fn closure_expansion() {
+    test! {
+        disable_coherence;
+        program {
+            #[lang(fn_once)]
+            trait FnOnce<Args> {
+                type Output;
+            }
+
+            #[lang(fn_mut)]
+            trait FnMut<Args> where Self: FnOnce<Args> { }
+
+            #[lang(fn)]
+            trait Fn<Args> where Self: FnMut<Args> { }
+
+            struct Ordering {}
+
+            //closure foo<T, U, V>(&self, a: &'static (T, &'static U), b: &'static (V, U)) -> Ordering {}
+            closure foo<T, 'y, U, V, W>(&self, a: &'static (T, &'y U), b: &'static (V, W)) -> Ordering {}
+        }
+        goal {
+            exists<T, 'y, U, V, W, A, B> {
+                Normalize(<foo<T, 'y, U, V, W> as FnOnce<(&'static (A, B), &'static (A, B))>>::Output -> Ordering)
+            }
+        } yields[SolverChoice::recursive_default()] {
+            "Unique"
+        }
+    }
+    /*
+        forall<T, U, V, W, X> {
+            foo<T, U, V>: FnMut<(&'static (W, X), &'static (W, X))>
+        }
+        Normalize(
+            <foo<fn(&'static (T, &'static U), &'static (V, U)) -> Ordering> as FnOnce<(&'static (W, X), &'static (W, X))>>::Output -> Ordering
+        )
+        exists<T, U, V, W, X> {
+            Normalize(<foo<T, U, V> as FnOnce<(&'static (W, X), &'static (W, X))>>::Output -> Ordering)
+        }
+       foo<fn(&'static (T, &'static U), &'static (V, U)) -> Ordering>: FnMut<(&'static (W, X), &'static (W, X))>
+
+       Implemented({closure:ClosureId(3)}<[?0 := () for<0> [
+           ?0 := (&'static 2<[?0 := ^1.0, ?1 := (&'static ^1.1)]>),
+           ?1 := (&'static 2<[?0 := ^1.2, ?1 := ^1.1]>),
+           ?2 := Ordering<[]>]
+       ]>: FnMut<2<[
+           ?0 := (&'static 2<[?0 := ^0.3, ?1 := ^0.4]>),
+           ?1 := (&'static 2<[?0 := ^0.3, ?1 := ^0.4]>)
+       ]>>)
+    */
+}

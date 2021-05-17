@@ -51,7 +51,9 @@ pub fn add_copy_program_clauses<I: Interner>(
         TyKind::Closure(closure_id, ref substitution) => {
             let closure_fn_substitution = db.closure_fn_substitution(closure_id, substitution);
             let upvars = db.closure_upvars(closure_id, substitution);
+            dbg!(&upvars, &closure_fn_substitution);
             let upvars = upvars.substitute(db.interner(), &closure_fn_substitution);
+            dbg!(&upvars);
             needs_impl_for_tys(db, builder, trait_ref, Some(upvars).into_iter());
         }
 
