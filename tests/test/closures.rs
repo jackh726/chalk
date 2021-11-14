@@ -312,3 +312,120 @@ fn closures_propagate_auto_traits() {
         }
     }
 }
+
+#[test]
+fn can_override_closure_traits() {
+    test! {
+        program {
+            #[lang(fn_once)]
+            trait FnOnce<Args> {
+                type Output;
+            }
+
+            #[lang(fn_mut)]
+            trait FnMut<Args> where Self: FnOnce<Args> { }
+
+            #[lang(fn)]
+            trait Fn<Args> where Self: FnMut<Args> { }
+
+            closure foo(&self,) {}
+            closure bar(&self,) {}
+            closure baz<T>(&mut self,) {}
+
+            impl FnOnce<()> for foo {
+                type Output = i32;
+            }
+            impl FnMut<()> for foo {}
+            impl Fn<()> for foo {}
+
+            impl<T> FnOnce<T> for bar {
+                type Output = T;
+            }
+            impl<T> FnMut<T> for bar {}
+
+            impl<T> FnOnce<T> for baz<T> {
+                type Output = i32;
+            }
+        }
+        // All 3 traits implemented
+        goal {
+            foo: Fn<()>
+        } yields {
+            expect![["Unique"]]
+        }
+        goal {
+            foo: FnMut<()>
+        } yields {
+            expect![["Unique"]]
+        }
+        goal {
+            foo: FnOnce<()>
+        } yields {
+            expect![["Unique"]]
+        }
+        goal {
+            Normalize(<foo as FnOnce<()>>::Output -> i32)
+        } yields {
+            expect![["Unique"]]
+        }
+        // and the impl is not wider than expected
+        goal {
+            foo: FnOnce<i32>
+        } yields {
+            expect![["No possible solution"]]
+        }
+
+        // Do not implement `Fn` on `&self` closure if there's an override
+        goal {
+            bar: Fn<()>
+        } yields {
+            expect![["No possible solution"]]
+        }
+        goal {
+            bar: FnMut<()>
+        } yields {
+            expect![["Unique"]]
+        }
+        goal {
+            bar: FnOnce<()>
+        } yields {
+            expect![["Unique"]]
+        }
+        // also the generic impl still does something reasonable
+        goal {
+            exists<T> {
+                Normalize(<bar as FnOnce<T>>::Output -> T)
+            }
+        } yields {
+            expect!["Unique; for<?U0> { substitution [?0 := ^0.0] }"]
+        }
+        goal {
+            exists<T> {
+                Normalize(<bar as FnOnce<T>>::Output -> ())
+            }
+        } yields {
+            expect!["Unique; substitution [?0 := 0]"]
+        }
+
+        // Do not implement `Fn` or 'FnMut' on `&mut self` closure if there's an override
+        goal {
+            exists<T, U> {
+                baz<T>: Fn<U>
+            }
+        } yields {
+            expect![["No possible solution"]]
+        }
+        goal {
+            exists<T, U> {
+                baz<T>: FnMut<U>
+            }
+        } yields {
+            expect![["No possible solution"]]
+        }
+        goal {
+            baz<()>: FnOnce<()>
+        } yields {
+            expect![["Unique"]]
+        }
+    }
+}
