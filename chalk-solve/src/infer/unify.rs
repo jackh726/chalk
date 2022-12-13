@@ -7,6 +7,7 @@ use chalk_ir::interner::{HasInterner, Interner};
 use chalk_ir::zip::{Zip, Zipper};
 use chalk_ir::UnificationDatabase;
 use std::fmt::Debug;
+use std::iter::zip;
 use tracing::{debug, instrument};
 
 impl<I: Interner> InferenceTable<I> {
@@ -179,6 +180,60 @@ impl<'t, I: Interner> Unifier<'t, I> {
                 "unification encountered bound variable: a={:?} b={:?}",
                 a, b
             ),
+
+            // Unifying an alias type with another alias.
+            (&TyKind::Alias(ref alias_a), &TyKind::Alias(ref alias_b)) => {
+                let a_subst = alias_a.substitution();
+                let b_subst = alias_b.substitution();
+                let eq_substs_goal = GoalData::All(Goals::from_iter(
+                    interner,
+                    zip(a_subst.iter(interner), b_subst.iter(interner)).map(|(a, b)| {
+                        GoalData::EqGoal(EqGoal {
+                            a: a.clone(),
+                            b: b.clone(),
+                        })
+                        .intern(interner)
+                    }),
+                ))
+                .intern(interner);
+
+                match variance {
+                    Variance::Invariant => {
+                        let normalizes_goal = AliasEq {
+                            alias: alias_b.clone(),
+                            ty: a.clone(),
+                        }
+                        .cast(interner);
+                        let any_goal = GoalData::Any(Goals::from_iter(
+                            interner,
+                            [eq_substs_goal, normalizes_goal],
+                        ))
+                        .intern(interner);
+                        self.goals
+                            .push(InEnvironment::new(self.environment, any_goal));
+                        Ok(())
+                    }
+                    Variance::Covariant | Variance::Contravariant => {
+                        let var = self
+                            .table
+                            .new_variable(UniverseIndex::root())
+                            .to_ty(interner);
+                        let normalizes_goal = AliasEq {
+                            alias: alias_b.clone(),
+                            ty: var.clone(),
+                        }
+                        .cast(interner);
+                        let any_goal = GoalData::Any(Goals::from_iter(
+                            interner,
+                            [eq_substs_goal, normalizes_goal],
+                        ))
+                        .intern(interner);
+                        self.goals
+                            .push(InEnvironment::new(self.environment, any_goal));
+                        self.relate_ty_ty(variance, &var, a)
+                    }
+                }
+            }
 
             // Unifying an alias type with some other type `U`.
             (_, &TyKind::Alias(ref alias)) => self.relate_alias_ty(variance.invert(), alias, a),

@@ -1624,6 +1624,14 @@ impl<I: Interner> AliasTy<I> {
             }
         }
     }
+
+    /// Gets the substitution for this alias
+    pub fn substitution(&self) -> &Substitution<I> {
+        match self {
+            AliasTy::Projection(projection_ty) => &projection_ty.substitution,
+            AliasTy::Opaque(opaque_ty) => &opaque_ty.substitution,
+        }
+    }
 }
 
 /// A projection `<P0 as TraitName<P1..Pn>>::AssocItem<Pn+1..Pm>`.
@@ -2563,6 +2571,9 @@ pub enum GoalData<I: Interner> {
 
     /// List of goals that all should hold.
     All(Goals<I>),
+
+    /// List of goals that any should hold.
+    Any(Goals<I>),
 
     /// Negation: the inner goal should not hold.
     Not(Goal<I>),

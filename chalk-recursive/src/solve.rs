@@ -79,6 +79,38 @@ pub(super) trait SolveIteration<I: Interner>: SolveDatabase<I> {
                 prog_solution
             }
 
+            GoalData::Any(goals) => {
+                let mut results = vec![];
+                for goal in goals.iter(self.interner()) {
+                    let canonical_goal = UCanonical {
+                        universes,
+                        canonical: Canonical {
+                            binders: binders.clone(),
+                            value: InEnvironment {
+                                environment: environment.clone(),
+                                goal: goal.clone(),
+                            },
+                        },
+                    };
+                    let (infer, subst, goal) = self.new_inference_table(&canonical_goal);
+                    let result = match Fulfill::new_with_simplification(self, infer, subst, goal) {
+                        Ok(fulfill) => fulfill.solve(minimums),
+                        Err(e) => Err(e),
+                    };
+                    results.push(result);
+                }
+
+                debug!(?results);
+
+                if results.len() == 0 {
+                    Err(NoSolution)
+                } else if results.len() > 1 {
+                    Ok(Solution::Ambig(Guidance::Unknown))
+                } else {
+                    results.into_iter().next().unwrap()
+                }
+            }
+
             _ => {
                 let canonical_goal = UCanonical {
                     universes,

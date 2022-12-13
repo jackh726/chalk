@@ -310,6 +310,57 @@ impl<I: Interner> Forest<I> {
                 }
             }
 
+            GoalData::Any(goals) => {
+                for subgoal in goals.iter(context.program().interner()) {
+                    let canonical_subgoal = UCanonical {
+                        universes: goal.universes,
+                        canonical: Canonical {
+                            binders: goal.canonical.binders.clone(),
+                            value: InEnvironment {
+                                environment: goal.canonical.value.environment.clone(),
+                                goal: subgoal.clone(),
+                            },
+                        },
+                    };
+                    let (
+                        mut infer,
+                        subst,
+                        InEnvironment {
+                            environment,
+                            goal: subgoal,
+                        },
+                    ) = chalk_solve::infer::InferenceTable::from_canonical(
+                        context.program().interner(),
+                        goal.universes,
+                        canonical_subgoal.canonical,
+                    );
+                    let mut ex_clause = ExClause {
+                        subst,
+                        ambiguous: false,
+                        constraints: vec![],
+                        subgoals: vec![],
+                        delayed_subgoals: vec![],
+                        answer_time: TimeStamp::default(),
+                        floundered_subgoals: vec![],
+                    };
+                    ex_clause
+                        .subgoals
+                        .push(Literal::Positive(InEnvironment::new(
+                            &environment,
+                            subgoal.clone(),
+                        )));
+                    let strand = Strand {
+                        ex_clause,
+                        selected_subgoal: None,
+                        last_pursued_time: TimeStamp::default(),
+                    };
+                    debug!(?strand);
+                    let canonical_strand =
+                        Self::canonicalize_strand_from(context, &mut infer, &strand);
+                    table.enqueue_strand(canonical_strand);
+                }
+            }
+
             _ => {
                 let (mut infer, subst, InEnvironment { environment, goal }) =
                     chalk_solve::infer::InferenceTable::from_canonical(

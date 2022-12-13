@@ -63,6 +63,14 @@ impl<I: Interner> Forest<I> {
                         pending_goals.push((environment.clone(), subgoal.clone()));
                     }
                 }
+                GoalData::Any(_) => {
+                    ex_clause
+                        .subgoals
+                        .push(Literal::Positive(InEnvironment::new(
+                            &environment,
+                            goal.clone(),
+                        )));
+                }
                 GoalData::Not(subgoal) => {
                     ex_clause
                         .subgoals

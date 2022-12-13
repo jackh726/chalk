@@ -305,6 +305,10 @@ impl<'s, I: Interner, Solver: SolveDatabase<I>> Fulfill<'s, I, Solver> {
                     self.push_goal(environment, subgoal.clone())?;
                 }
             }
+            GoalData::Any(_) => {
+                let in_env = InEnvironment::new(environment, goal);
+                self.push_obligation(Obligation::Prove(in_env));
+            }
             GoalData::Not(subgoal) => {
                 let in_env = InEnvironment::new(environment, subgoal.clone());
                 self.push_obligation(Obligation::Refute(in_env));

@@ -387,6 +387,7 @@ impl<I: Interner> Debug for GoalData<I> {
             ),
             GoalData::Implies(ref wc, ref g) => write!(fmt, "if ({:?}) {{ {:?} }}", wc, g),
             GoalData::All(ref goals) => write!(fmt, "all{:?}", goals),
+            GoalData::Any(ref goals) => write!(fmt, "any{:?}", goals),
             GoalData::Not(ref g) => write!(fmt, "not {{ {:?} }}", g),
             GoalData::EqGoal(ref wc) => write!(fmt, "{:?}", wc),
             GoalData::SubtypeGoal(ref wc) => write!(fmt, "{:?}", wc),
