@@ -265,6 +265,15 @@ impl LowerWithEnv for LeafGoal {
             LeafGoal::DomainGoal { goal } => {
                 chalk_ir::Goal::all(interner, goal.lower(env)?.into_iter().casted(interner))
             }
+            LeafGoal::ProjectionEq { projection, ty } => chalk_ir::Goal::new(
+                interner,
+                chalk_ir::GoalData::DomainGoal(chalk_ir::DomainGoal::Holds(
+                    chalk_ir::WhereClause::AliasEq(chalk_ir::AliasEq {
+                        alias: chalk_ir::AliasTy::Projection(projection.lower(env)?),
+                        ty: ty.lower(env)?,
+                    }),
+                )),
+            ),
             LeafGoal::UnifyGenericArgs { a, b } => chalk_ir::EqGoal {
                 a: a.lower(env)?.cast(interner),
                 b: b.lower(env)?.cast(interner),

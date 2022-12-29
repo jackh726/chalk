@@ -639,6 +639,8 @@ DomainGoal: DomainGoal = {
 LeafGoal: LeafGoal = {
     <dg: DomainGoal> => LeafGoal::DomainGoal { goal: dg },
 
+    "ProjectionEq" "(" <s:ProjectionTy> "->" <t:Ty> ")" => LeafGoal::ProjectionEq { projection: s, ty: t },
+
     <a:GenericArg> "=" <b:GenericArg> => LeafGoal::UnifyGenericArgs { a, b },
 
     "Subtype" "(" <a:Ty> "," <b:Ty> ")" => LeafGoal::SubtypeGenericArgs { a, b },

@@ -709,11 +709,6 @@ where
                 substitution.clone().try_fold_with(folder, outer_binder)?,
             )
             .intern(folder.interner()),
-            TyKind::AssociatedType(assoc_ty, substitution) => TyKind::AssociatedType(
-                assoc_ty.try_fold_with(folder, outer_binder)?,
-                substitution.clone().try_fold_with(folder, outer_binder)?,
-            )
-            .intern(folder.interner()),
             TyKind::Scalar(scalar) => TyKind::Scalar(scalar.try_fold_with(folder, outer_binder)?)
                 .intern(folder.interner()),
             TyKind::Str => TyKind::Str.intern(folder.interner()),

@@ -13,6 +13,8 @@ edition = "2018"
 default = []
 
 [dependencies]
+ena = "0.14.0"
+itertools = "0.10.0"
 rustc-hash = { version = "1.1.0" }
 tracing = "0.1"
 

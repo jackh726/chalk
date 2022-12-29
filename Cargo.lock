@@ -129,6 +129,8 @@ dependencies = [
  "chalk-integration",
  "chalk-ir",
  "chalk-solve",
+ "ena",
+ "itertools",
  "rustc-hash",
  "tracing",
 ]

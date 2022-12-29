@@ -5,8 +5,8 @@ use crate::{ExClause, Literal, TimeStamp};
 use chalk_ir::cast::{Cast, Caster};
 use chalk_ir::interner::Interner;
 use chalk_ir::{
-    Environment, FallibleOrFloundered, Goal, GoalData, InEnvironment, QuantifierKind, Substitution,
-    TyKind, TyVariableKind, Variance,
+    debug, Environment, FallibleOrFloundered, Goal, GoalData, InEnvironment, QuantifierKind,
+    Substitution, TyKind, TyVariableKind, Variance,
 };
 use chalk_solve::infer::InferenceTable;
 use tracing::debug;
@@ -85,6 +85,7 @@ impl<I: Interner> Forest<I> {
                     let a = &goal.a;
                     let b = &goal.b;
 
+                    debug!(?a, ?b);
                     let result =
                         match infer.relate(interner, db, &environment, Variance::Invariant, a, b) {
                             Ok(r) => r,

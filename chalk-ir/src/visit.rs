@@ -251,9 +251,6 @@ where
             TyKind::Alias(proj) => proj.visit_with(visitor, outer_binder),
             TyKind::Function(fun) => fun.visit_with(visitor, outer_binder),
             TyKind::Adt(_id, substitution) => substitution.visit_with(visitor, outer_binder),
-            TyKind::AssociatedType(_assoc_ty, substitution) => {
-                substitution.visit_with(visitor, outer_binder)
-            }
             TyKind::Scalar(scalar) => scalar.visit_with(visitor, outer_binder),
             TyKind::Str => ControlFlow::Continue(()),
             TyKind::Tuple(arity, substitution) => {

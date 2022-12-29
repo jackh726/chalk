@@ -467,6 +467,7 @@ pub enum DomainGoal {
 #[derive(Clone, PartialEq, Eq, Debug)]
 pub enum LeafGoal {
     DomainGoal { goal: DomainGoal },
+    ProjectionEq { projection: ProjectionTy, ty: Ty },
     UnifyGenericArgs { a: GenericArg, b: GenericArg },
     SubtypeGenericArgs { a: Ty, b: Ty },
 }

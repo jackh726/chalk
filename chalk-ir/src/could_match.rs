@@ -55,10 +55,6 @@ where
                                 )
                                 .is_ok()
                     }
-                    (
-                        TyKind::AssociatedType(assoc_ty_a, substitution_a),
-                        TyKind::AssociatedType(assoc_ty_b, substitution_b),
-                    ) => assoc_ty_a == assoc_ty_b && matches(substitution_a, substitution_b),
                     (TyKind::Scalar(scalar_a), TyKind::Scalar(scalar_b)) => scalar_a == scalar_b,
                     (TyKind::Str, TyKind::Str) => true,
                     (

@@ -63,7 +63,6 @@ pub fn add_copy_program_clauses<I: Interner>(
         | TyKind::Str => {}
 
         TyKind::Adt(_, _)
-        | TyKind::AssociatedType(_, _)
         | TyKind::Slice(_)
         | TyKind::OpaqueType(_, _)
         | TyKind::Foreign(_)

@@ -34,7 +34,6 @@ pub fn add_discriminant_clauses<I: Interner>(
         | TyKind::Alias(_)
         | TyKind::BoundVar(_)
         | TyKind::Placeholder(_)
-        | TyKind::AssociatedType(..)
         | TyKind::Error
         | TyKind::InferenceVar(..) => false,
     };

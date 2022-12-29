@@ -90,8 +90,7 @@ pub fn add_sized_program_clauses<I: Interner>(
         | TyKind::GeneratorWitness(_, _)
         | TyKind::Ref(_, _, _) => builder.push_fact(trait_ref),
 
-        TyKind::AssociatedType(_, _)
-        | TyKind::Slice(_)
+        TyKind::Slice(_)
         | TyKind::OpaqueType(_, _)
         | TyKind::Str
         | TyKind::Foreign(_)

@@ -8,8 +8,11 @@ use chalk_ir::*;
 use chalk_solve::ext::*;
 use chalk_solve::infer::InferenceTable;
 use chalk_solve::solve::{Guidance, Solution};
+use rustc_hash::FxHashMap;
 
+use ena::unify::{UnifyKey, UnifyValue};
 use std::fmt::Debug;
+use std::marker::PhantomData;
 
 /// Methods for combining solutions to yield an aggregate solution.
 pub trait AggregateOps<I: Interner> {
@@ -31,35 +34,21 @@ impl<I: Interner> AggregateOps<I> for SlgContextOps<'_, I> {
         should_continue: impl std::ops::Fn() -> bool,
     ) -> Option<Solution<I>> {
         let interner = self.program.interner();
-        let CompleteAnswer { subst, ambiguous } = match answers.next_answer(&should_continue) {
+        let CompleteAnswer {
+            mut subst,
+            ambiguous,
+        } = match answers.next_answer(&should_continue) {
             AnswerResult::NoMoreSolutions => {
                 // No answers at all
                 return None;
             }
-            AnswerResult::Answer(answer) => answer,
-            AnswerResult::Floundered => CompleteAnswer {
-                subst: self.identity_constrained_subst(root_goal),
-                ambiguous: true,
-            },
+            AnswerResult::Floundered => return Some(Solution::Ambig(Guidance::Unknown)),
             AnswerResult::QuantumExceeded => {
                 return Some(Solution::Ambig(Guidance::Unknown));
             }
+            AnswerResult::Answer(answer) => answer,
         };
-
-        // Exactly 1 unconditional answer?
-        let next_answer = answers.peek_answer(&should_continue);
-        if next_answer.is_quantum_exceeded() {
-            if subst.value.subst.is_identity_subst(interner) {
-                return Some(Solution::Ambig(Guidance::Unknown));
-            } else {
-                return Some(Solution::Ambig(Guidance::Suggested(
-                    subst.map(interner, |cs| cs.subst),
-                )));
-            }
-        }
-        if next_answer.is_no_more_solutions() && !ambiguous {
-            return Some(Solution::Unique(subst));
-        }
+        dbg!(&subst, ambiguous);
 
         // Otherwise, we either have >1 answer, or else we have
         // ambiguity.  Either way, we are only going to be giving back
@@ -73,44 +62,130 @@ impl<I: Interner> AggregateOps<I> for SlgContextOps<'_, I> {
         // cases into an `OR` region constraint at some point, but I
         // leave that for future work. This is basically
         // rust-lang/rust#21974.
-        let mut subst = subst.map(interner, |cs| cs.subst);
+        //let mut subst = subst.clone().map(interner, |cs| cs.subst);
 
         // Extract answers and merge them into `subst`. Stop once we have
         // a trivial subst (or run out of answers).
+
+        // Track the number of answers and the number of solutions separately.
+        // Answers may be different but ultimately result in a single solution.
+        // This currently only applies for aliases, but may apply for e.g.
+        // region constraints in the future.
         let mut num_answers = 1;
-        let guidance = loop {
-            if subst.value.is_empty(interner) || is_trivial(interner, &subst) {
-                break Guidance::Unknown;
-            }
-
-            if !answers
-                .any_future_answer(|ref mut new_subst| new_subst.may_invalidate(interner, &subst))
+        let mut num_solutions = 1;
+        let solution = loop {
+            if num_solutions > 1
+                && is_trivial(interner, &subst.clone().map(interner, |cs| cs.subst))
             {
-                break Guidance::Definite(subst);
+                break Some(Solution::Ambig(Guidance::Unknown));
             }
 
-            if let Some(expected_answers) = self.expected_answers {
-                if num_answers >= expected_answers {
-                    panic!("Too many answers for solution.");
-                }
-            }
-
-            let new_subst = match answers.next_answer(&should_continue) {
-                AnswerResult::Answer(answer1) => answer1.subst,
-                AnswerResult::Floundered => {
-                    // FIXME: this doesn't trigger for any current tests
-                    self.identity_constrained_subst(root_goal)
-                }
-                AnswerResult::NoMoreSolutions => {
-                    break Guidance::Definite(subst);
-                }
+            let next_answer = answers.peek_answer(&should_continue);
+            dbg!(&next_answer);
+            match next_answer {
                 AnswerResult::QuantumExceeded => {
-                    break Guidance::Suggested(subst);
+                    break if subst.value.subst.is_identity_subst(interner) {
+                        Some(Solution::Ambig(Guidance::Unknown))
+                    } else {
+                        Some(Solution::Ambig(Guidance::Suggested(
+                            subst.clone().map(interner, |cs| cs.subst),
+                        )))
+                    };
                 }
-            };
-            subst = merge_into_guidance(interner, &root_goal.canonical, subst, &new_subst);
-            num_answers += 1;
+                AnswerResult::Floundered => return Some(Solution::Ambig(Guidance::Unknown)),
+                AnswerResult::NoMoreSolutions => {
+                    dbg!(num_answers, num_solutions, ambiguous);
+                    break if num_solutions == 1 && !ambiguous {
+                        Some(Solution::Unique(subst))
+                    } else {
+                        Some(Solution::Ambig(Guidance::Definite(
+                            subst.clone().map(interner, |cs| cs.subst),
+                        )))
+                    };
+                }
+                AnswerResult::Answer(next_answer) => {
+                    num_answers += 1;
+                    if let Some(expected_answers) = self.expected_answers {
+                        if num_answers >= expected_answers {
+                            panic!("Too many answers for solution.");
+                        }
+                    }
+
+                    let new_solution;
+                    (subst, new_solution) = merge_into_guidance(
+                        interner,
+                        &root_goal.canonical,
+                        subst,
+                        &next_answer.subst,
+                    );
+
+                    if new_solution {
+                        num_solutions += 1;
+                        if !answers.any_future_answer(|ref mut new_subst| {
+                            new_subst.may_invalidate(
+                                interner,
+                                &subst.clone().map(interner, |cs| cs.subst),
+                            )
+                        }) {
+                            break Some(Solution::Ambig(Guidance::Definite(
+                                subst.clone().map(interner, |cs| cs.subst),
+                            )));
+                        }
+                    }
+                }
+            }
         };
+
+        /*
+                // Exactly 1 unconditional answer?
+                let next_answer = answers.peek_answer(&should_continue);
+                if next_answer.is_quantum_exceeded() {
+                    return if subst.value.subst.is_identity_subst(interner) {
+                        Some(Solution::Ambig(Guidance::Unknown))
+                    } else {
+                        Some(Solution::Ambig(Guidance::Suggested(
+                            subst.clone().map(interner, |cs| cs.subst),
+                        )))
+                    };
+                }
+                if next_answer.is_no_more_solutions() && !ambiguous {
+                    return Some(Solution::Unique(subst));
+                }
+
+                // Extract answers and merge them into `subst`. Stop once we have
+                // a trivial subst (or run out of answers).
+                let mut num_answers = 1;
+                let guidance = loop {
+                    if is_trivial(interner, &subst) {
+                        break Guidance::Unknown;
+                    }
+
+                    if !answers
+                        .any_future_answer(|ref mut new_subst| new_subst.may_invalidate(interner, &subst))
+                    {
+                        break Guidance::Definite(subst);
+                    }
+
+                    if let Some(expected_answers) = self.expected_answers {
+                        if num_answers >= expected_answers {
+                            panic!("Too many answers for solution.");
+                        }
+                    }
+
+                    let new_subst = match answers.next_answer(&should_continue) {
+                        AnswerResult::Answer(answer1) => answer1.subst,
+                        AnswerResult::Floundered => return Some(Solution::Ambig(Guidance::Unknown)),
+                        AnswerResult::NoMoreSolutions => {
+                            break Guidance::Definite(subst);
+                        }
+                        AnswerResult::QuantumExceeded => {
+                            break Guidance::Suggested(subst);
+                        }
+                    };
+                    subst = merge_into_guidance(interner, &root_goal.canonical, subst, &new_subst);
+                    num_answers += 1;
+                };
+        */
 
         if let Some(expected_answers) = self.expected_answers {
             assert_eq!(
@@ -118,7 +193,8 @@ impl<I: Interner> AggregateOps<I> for SlgContextOps<'_, I> {
                 "Not enough answers for solution."
             );
         }
-        Some(Solution::Ambig(guidance))
+
+        solution
     }
 }
 
@@ -131,9 +207,9 @@ impl<I: Interner> AggregateOps<I> for SlgContextOps<'_, I> {
 fn merge_into_guidance<I: Interner>(
     interner: I,
     root_goal: &Canonical<InEnvironment<Goal<I>>>,
-    guidance: Canonical<Substitution<I>>,
+    guidance: Canonical<ConstrainedSubst<I>>,
     answer: &Canonical<ConstrainedSubst<I>>,
-) -> Canonical<Substitution<I>> {
+) -> (Canonical<ConstrainedSubst<I>>, bool) {
     let mut infer = InferenceTable::new();
     let Canonical {
         value: ConstrainedSubst {
@@ -147,6 +223,7 @@ fn merge_into_guidance<I: Interner>(
     // common.
     let aggr_generic_args: Vec<_> = guidance
         .value
+        .subst
         .iter(interner)
         .zip(subst1.iter(interner))
         .enumerate()
@@ -174,6 +251,8 @@ fn merge_into_guidance<I: Interner>(
                 infer: &mut infer,
                 universe,
                 interner,
+                alias_var_map: FxHashMap::default(),
+                alias_unification: ena::unify::UnificationTable::new(),
             };
             aggr.aggregate_generic_args(p1, p2)
         })
@@ -181,7 +260,12 @@ fn merge_into_guidance<I: Interner>(
 
     let aggr_subst = Substitution::from_iter(interner, aggr_generic_args);
 
-    infer.canonicalize(interner, aggr_subst).quantified
+    let aggr_subst = ConstrainedSubst {
+        subst: aggr_subst,
+        // FIXME: if this is one solution, we need to keep the existing constraints
+        constraints: Constraints::empty(interner),
+    };
+    (infer.canonicalize(interner, aggr_subst).quantified, true)
 }
 
 fn is_trivial<I: Interner>(interner: I, subst: &Canonical<Substitution<I>>) -> bool {
@@ -230,6 +314,8 @@ struct AntiUnifier<'infer, I: Interner> {
     infer: &'infer mut InferenceTable<I>,
     universe: UniverseIndex,
     interner: I,
+    alias_var_map: FxHashMap<Ty<I>, u32>,
+    alias_unification: ena::unify::InPlaceUnificationTable<AliasVarTy<I>>,
 }
 
 impl<I: Interner> AntiUnifier<'_, I> {
@@ -241,7 +327,8 @@ impl<I: Interner> AntiUnifier<'_, I> {
             // overgeneralize.  So for example if we have two
             // solutions that are both `(X, X)`, we just produce `(Y,
             // Z)` in all cases.
-            (TyKind::InferenceVar(_, _), TyKind::InferenceVar(_, _)) => self.new_ty_variable(),
+            (TyKind::InferenceVar(_, _), _) => self.new_ty_variable(),
+            (_, TyKind::InferenceVar(_, _)) => self.new_ty_variable(),
 
             // Ugh. Aggregating two types like `for<'a> fn(&'a u32,
             // &'a u32)` and `for<'a, 'b> fn(&'a u32, &'b u32)` seems
@@ -252,6 +339,83 @@ impl<I: Interner> AntiUnifier<'_, I> {
             (TyKind::BoundVar(_), TyKind::BoundVar(_))
             | (TyKind::Function(_), TyKind::Function(_))
             | (TyKind::Dyn(_), TyKind::Dyn(_)) => self.new_ty_variable(),
+
+            (
+                TyKind::Alias(AliasTy::Projection(proj1)),
+                TyKind::Alias(AliasTy::Projection(proj2)),
+            ) => {
+                let alias_unification = &mut self.alias_unification;
+                let a_var = self.alias_var_map.entry(ty0.clone());
+                let a_var = a_var.or_insert_with(|| {
+                    let var = alias_unification.new_key(AliasValue::Unbound);
+                    var.index
+                });
+                let a_var = AliasVarTy::from_index(*a_var);
+
+                let b_var = self.alias_var_map.entry(ty1.clone());
+                let b_var = b_var.or_insert_with(|| {
+                    let var = alias_unification.new_key(AliasValue::Unbound);
+                    var.index
+                });
+                let b_var = AliasVarTy::from_index(*b_var);
+
+                let result = self.alias_unification.unify_var_var(a_var, b_var);
+                match result {
+                    Ok(()) => ty0.clone(),
+                    Err(_) => self.new_ty_variable(),
+                }
+            }
+
+            (TyKind::Alias(AliasTy::Projection(proj1)), _) => {
+                let alias_unification = &mut self.alias_unification;
+                let a_var = self.alias_var_map.entry(ty0.clone());
+                let a_var = a_var.or_insert_with(|| {
+                    let var = alias_unification.new_key(AliasValue::Unbound);
+                    var.index
+                });
+                let a_var = AliasVarTy::from_index(*a_var);
+
+                let b_var = self.alias_var_map.entry(ty1.clone());
+                let b_var = b_var.or_insert_with(|| {
+                    let var = alias_unification.new_key(AliasValue::Bound(ty1.clone()));
+                    var.index
+                });
+                let b_var = AliasVarTy::from_index(*b_var);
+
+                let result = self.alias_unification.unify_var_var(a_var, b_var);
+                match result {
+                    Ok(()) => ty1.clone(),
+                    Err(_) => self.new_ty_variable(),
+                }
+            }
+
+            (_, TyKind::Alias(AliasTy::Projection(proj1))) => {
+                let alias_unification = &mut self.alias_unification;
+                let a_var = self.alias_var_map.entry(ty0.clone());
+                let a_var = a_var.or_insert_with(|| {
+                    let var = alias_unification.new_key(AliasValue::Bound(ty0.clone()));
+                    var.index
+                });
+                let a_var = AliasVarTy::from_index(*a_var);
+
+                let b_var = self.alias_var_map.entry(ty1.clone());
+                let b_var = b_var.or_insert_with(|| {
+                    let var = alias_unification.new_key(AliasValue::Unbound);
+                    var.index
+                });
+                let b_var = AliasVarTy::from_index(*b_var);
+
+                let result = self.alias_unification.unify_var_var(a_var, b_var);
+                match result {
+                    Ok(()) => ty0.clone(),
+                    Err(_) => self.new_ty_variable(),
+                }
+            }
+
+            (
+                TyKind::Alias(AliasTy::Opaque(opaque_ty1)),
+                TyKind::Alias(AliasTy::Opaque(opaque_ty2)),
+            ) => self.aggregate_opaque_ty_tys(opaque_ty1, opaque_ty2),
 
             (
                 TyKind::Alias(AliasTy::Projection(proj1)),
@@ -270,15 +434,6 @@ impl<I: Interner> AntiUnifier<'_, I> {
             (TyKind::Adt(id_a, substitution_a), TyKind::Adt(id_b, substitution_b)) => self
                 .aggregate_name_and_substs(id_a, substitution_a, id_b, substitution_b)
                 .map(|(&name, substitution)| TyKind::Adt(name, substitution).intern(interner))
-                .unwrap_or_else(|| self.new_ty_variable()),
-            (
-                TyKind::AssociatedType(id_a, substitution_a),
-                TyKind::AssociatedType(id_b, substitution_b),
-            ) => self
-                .aggregate_name_and_substs(id_a, substitution_a, id_b, substitution_b)
-                .map(|(&name, substitution)| {
-                    TyKind::AssociatedType(name, substitution).intern(interner)
-                })
                 .unwrap_or_else(|| self.new_ty_variable()),
             (TyKind::Scalar(scalar_a), TyKind::Scalar(scalar_b)) => {
                 if scalar_a == scalar_b {
@@ -569,6 +724,50 @@ impl<I: Interner> AntiUnifier<'_, I> {
         self.infer
             .new_variable(self.universe)
             .to_const(interner, ty)
+    }
+}
+
+#[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct AliasVarTy<I: Interner> {
+    index: u32,
+    phantom: PhantomData<I>,
+}
+
+impl<I: Interner> UnifyKey for AliasVarTy<I> {
+    type Value = AliasValue<I>;
+
+    fn index(&self) -> u32 {
+        self.index
+    }
+
+    fn from_index(index: u32) -> Self {
+        AliasVarTy {
+            index,
+            phantom: PhantomData,
+        }
+    }
+
+    fn tag() -> &'static str {
+        "AliasVarTy"
+    }
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum AliasValue<I: Interner> {
+    Unbound,
+    Bound(Ty<I>),
+}
+
+impl<I: Interner> UnifyValue for AliasValue<I> {
+    type Error = ();
+
+    fn unify_values(a: &Self, b: &Self) -> Result<Self, Self::Error> {
+        match (a, b) {
+            (&AliasValue::Unbound, &AliasValue::Unbound) => Ok(AliasValue::Unbound),
+            (bound @ &AliasValue::Bound(_), &AliasValue::Unbound)
+            | (&AliasValue::Unbound, bound @ &AliasValue::Bound(_)) => Ok(bound.clone()),
+            (&AliasValue::Bound(_), &AliasValue::Bound(_)) => Err(()),
+        }
     }
 }
 

@@ -80,9 +80,6 @@ fn constituent_types<I: Interner>(db: &dyn RustIrDatabase<I>, ty: &TyKind<I>) ->
         TyKind::Foreign(_) => panic!("constituent_types of foreign types are unknown!"),
         TyKind::Error => Vec::new(),
         TyKind::OpaqueType(_, _) => panic!("constituent_types of opaque types are unknown!"),
-        TyKind::AssociatedType(_, _) => {
-            panic!("constituent_types of associated types are unknown!")
-        }
     }
 }
 
@@ -200,10 +197,7 @@ pub fn push_auto_trait_impls<I: Interner>(
         }
 
         // No auto traits
-        TyKind::AssociatedType(_, _)
-        | TyKind::Placeholder(_)
-        | TyKind::Dyn(_)
-        | TyKind::Alias(_) => Ok(()),
+        TyKind::Placeholder(_) | TyKind::Dyn(_) | TyKind::Alias(_) => Ok(()),
 
         // app_ty implements AutoTrait if all constituents of app_ty implement AutoTrait
         _ => {
@@ -882,10 +876,6 @@ fn match_ty<I: Interner>(
             .opaque_ty_data(*opaque_ty_id)
             .to_program_clauses(builder, environment),
         TyKind::Error => {}
-        TyKind::AssociatedType(type_id, _) => builder
-            .db
-            .associated_ty_data(*type_id)
-            .to_program_clauses(builder, environment),
         TyKind::FnDef(fn_def_id, _) => builder
             .db
             .fn_def_datum(*fn_def_id)

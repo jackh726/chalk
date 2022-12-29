@@ -22,38 +22,6 @@ impl<I: Interner> RenderAsRust<I> for TyKind<I> {
                 let parameters = parameters.iter().map(|param| param.display(s));
                 write_joined_non_empty_list!(f, "<{}>", parameters, ", ")
             }
-            TyKind::AssociatedType(assoc_type_id, substitution) => {
-                // (Iterator::Item)(x)
-                // should be written in Rust as <X as Iterator>::Item
-                let datum = s.db().associated_ty_data(*assoc_type_id);
-                assert!(
-                    substitution
-                        .iter(interner)
-                        .filter_map(move |p| p.ty(interner))
-                        .count()
-                        >= 1,
-                    "AssociatedType should have at least 1 parameter"
-                );
-                write!(
-                    f,
-                    "<{} as {}>::{}",
-                    substitution
-                        .iter(interner)
-                        .filter_map(move |p| p.ty(interner))
-                        .next()
-                        .unwrap()
-                        .display(s),
-                    datum.trait_id.display(s),
-                    datum.id.display(s),
-                )?;
-                let params = substitution.as_slice(interner);
-                write_joined_non_empty_list!(
-                    f,
-                    "<{}>",
-                    params[1..].iter().map(|ty| ty.display(s)),
-                    ","
-                )
-            }
             TyKind::Scalar(scalar) => write!(f, "{}", scalar.display(s)),
             TyKind::Tuple(arity, substitution) => {
                 write!(

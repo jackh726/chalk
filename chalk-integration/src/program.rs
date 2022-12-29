@@ -498,7 +498,6 @@ impl RustIrDatabase<ChalkIr> for Program {
                 .self_type_parameter(interner);
             match (impl_ty, ty.kind(interner)) {
                 (TyKind::Adt(id_a, _), TyKind::Adt(id_b, _)) => id_a == id_b,
-                (TyKind::AssociatedType(id_a, _), TyKind::AssociatedType(id_b, _)) => id_a == id_b,
                 (TyKind::Scalar(scalar_a), TyKind::Scalar(scalar_b)) => scalar_a == scalar_b,
                 (TyKind::Str, TyKind::Str) => true,
                 (TyKind::Tuple(arity_a, _), TyKind::Tuple(arity_b, _)) => arity_a == arity_b,

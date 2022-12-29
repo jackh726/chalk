@@ -51,19 +51,7 @@ fn normalize_basic() {
                 }
             }
         } yields {
-            expect![["Unique; substitution [?0 := (Iterator::Item)<!1_0>]"]]
-        }
-
-        goal {
-            forall<T> {
-                if (T: Iterator) {
-                    exists<U> {
-                        T: Iterator<Item = U>
-                    }
-                }
-            }
-        } yields {
-            expect![["Unique; substitution [?0 := (Iterator::Item)<!1_0>]"]]
+            expect![["Unique; substitution [?0 := <!1_0 as Iterator>::Item]"]]
         }
 
         goal {
@@ -240,7 +228,7 @@ fn projection_equality_priority2() {
             }
         } yields {
             // Constraining Out1 = Y gives us only one choice.
-            expect![["Unique; substitution [?0 := !1_1, ?1 := (Trait1::Type)<!1_0, !1_1>]"]]
+            expect![["Unique; substitution [?0 := !1_1, ?1 := <!1_0 as Trait1<!1_1>>::Type]"]]
         }
 
         goal {
@@ -254,7 +242,7 @@ fn projection_equality_priority2() {
             }
         } yields {
             // Constraining Out1 = Y gives us only one choice.
-            expect![["Unique; substitution [?0 := !1_1, ?1 := (Trait1::Type)<!1_0, !1_1>]"]]
+            expect![["Unique; substitution [?0 := !1_1, ?1 := <!1_0 as Trait1<!1_1>>::Type]"]]
         }
 
         goal {
@@ -291,13 +279,12 @@ fn projection_equality_from_env() {
             forall<T> {
                 if (T: Trait1<Type = u32>) {
                     exists<U> {
-                        <T as Trait1>::Type = U
+                        ProjectionEq(<T as Trait1>::Type -> U)
                     }
                 }
             }
         } yields[SolverChoice::slg_default()] {
-            // this is wrong, chalk#234
-            expect![["Ambiguous; no inference guidance"]]
+            expect![["Unique; substitution [?0 := Uint(U32)]"]]
         } yields[SolverChoice::recursive_default()] {
             expect![["Unique; substitution [?0 := Uint(U32)]"]]
         }
@@ -318,7 +305,7 @@ fn projection_equality_nested() {
                 if (I: Iterator) {
                     if (<I as Iterator>::Item: Iterator<Item = u32>) {
                         exists<U> {
-                            <<I as Iterator>::Item as Iterator>::Item = U
+                            ProjectionEq(<<I as Iterator>::Item as Iterator>::Item -> U)
                         }
                     }
                 }
@@ -361,15 +348,12 @@ fn iterator_flatten() {
             forall<I, U> {
                 if (I: Iterator<Item = U>; U: IntoIterator<Item = u32>) {
                     exists<T> {
-                        <Flatten<I> as Iterator>::Item = T
+                        ProjectionEq(<Flatten<I> as Iterator>::Item -> T)
                     }
                 }
             }
         } yields[SolverChoice::slg_default()] {
-            // this is wrong, chalk#234
-            expect![["Ambiguous; no inference guidance"]]
-        } yields[SolverChoice::recursive_default()] {
-            expect![["Unique; substitution [?0 := Uint(U32)]"]]
+            expect![["Ambiguous; definite substitution for<?U1> { [?0 := <^0.0 as Iterator>::Item] }"]]
         }
     }
 }
@@ -825,7 +809,7 @@ fn normalize_under_binder_multi() {
             }
         } yields_all {
             expect![["substitution [?0 := I32]"]],
-            expect![["for<?U0,?U0> { substitution [?0 := (Deref::Item)<Ref<'^0.0, I32>, '^0.1>], lifetime constraints [\
+            expect![["for<?U0,?U0> { substitution [?0 := <Ref<'^0.0, I32> as Deref<'^0.1>>::Item], lifetime constraints [\
             InEnvironment { environment: Env([]), goal: '!1_0: '^0.1 }, \
             InEnvironment { environment: Env([]), goal: '^0.1: '!1_0 }, \
             InEnvironment { environment: Env([]), goal: '!1_0: '^0.0 }, \

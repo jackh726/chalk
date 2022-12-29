@@ -33,7 +33,7 @@ impl<I: Interner> InferenceTable<I> {
         T: TypeFoldable<I>,
         T: HasInterner<Interner = I>,
     {
-        debug_span!("canonicalize", "{:#?}", value);
+        debug_span!("canonicalize", "{:?}", value);
         let mut q = Canonicalizer {
             table: self,
             free_vars: Vec::new(),
@@ -145,7 +145,6 @@ impl<'i, I: Interner> TypeFolder<I> for Canonicalizer<'i, I> {
         true
     }
 
-    #[instrument(level = "debug", skip(self))]
     fn fold_inference_ty(
         &mut self,
         var: InferenceVar,
@@ -156,7 +155,7 @@ impl<'i, I: Interner> TypeFolder<I> for Canonicalizer<'i, I> {
         match self.table.probe_var(var) {
             Some(ty) => {
                 let ty = ty.assert_ty_ref(interner);
-                debug!("bound to {:?}", ty);
+                debug!("{:?} bound to {:?}", var, ty);
                 ty.clone()
                     .fold_with(self, DebruijnIndex::INNERMOST)
                     .shifted_in_from(interner, outer_binder)
@@ -170,7 +169,7 @@ impl<'i, I: Interner> TypeFolder<I> for Canonicalizer<'i, I> {
                     ParameterEnaVariable::new(VariableKind::Ty(kind), self.table.unify.find(var));
 
                 let bound_var = BoundVar::new(DebruijnIndex::INNERMOST, self.add(free_var));
-                debug!(position=?bound_var, "not yet unified");
+                debug!("{:?} not yet unified - returning {:?}", var, bound_var);
                 TyKind::BoundVar(bound_var.shifted_in_from(outer_binder)).intern(interner)
             }
         }

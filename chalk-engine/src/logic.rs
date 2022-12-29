@@ -20,6 +20,7 @@ use chalk_solve::coinductive_goal::IsCoinductive;
 use chalk_solve::infer::ucanonicalize::UCanonicalized;
 use chalk_solve::infer::InferenceTable;
 use chalk_solve::solve::truncate;
+use itertools::Itertools;
 use tracing::{debug, debug_span, info, instrument};
 
 type RootSearchResult<T> = Result<T, RootSearchFail>;
@@ -232,6 +233,7 @@ impl<I: Interner> Forest<I> {
         table_idx: TableIndex,
         goal: UCanonical<InEnvironment<Goal<I>>>,
     ) -> Table<I> {
+        debug!(?goal);
         let coinductive = goal.is_coinductive(context.program());
         let mut table = Table::new(goal.clone(), coinductive);
 
@@ -273,6 +275,9 @@ impl<I: Interner> Forest<I> {
                                 .cloned()
                                 .filter(could_match),
                         );
+
+                        let clauses: Vec<_> = clauses.into_iter().unique().collect();
+                        debug!(?clauses);
 
                         let InEnvironment { environment, goal } = goal;
 
@@ -377,6 +382,7 @@ impl<I: Interner> Forest<I> {
                 // reduce goals into Domain goals.
                 match Self::simplify_goal(context, &mut infer, subst, environment, goal) {
                     FallibleOrFloundered::Ok(ex_clause) => {
+                        debug!(?ex_clause);
                         info!(
                             ex_clause = ?DeepNormalizer::normalize_deep(
                                 &mut infer,

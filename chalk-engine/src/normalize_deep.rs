@@ -50,11 +50,16 @@ impl<I: Interner> TypeFolder<I> for DeepNormalizer<'_, I> {
     ) -> Ty<I> {
         let interner = self.interner;
         match self.table.probe_var(var) {
-            Some(ty) => ty
-                .assert_ty_ref(interner)
-                .clone()
-                .fold_with(self, DebruijnIndex::INNERMOST)
-                .shifted_in(interner), // FIXME shift
+            Some(ty) => {
+                let ty = ty.assert_ty_ref(interner);
+                if false && ty.is_alias(interner) {
+                    ty.clone()
+                } else {
+                    ty.clone()
+                        .fold_with(self, DebruijnIndex::INNERMOST)
+                        .shifted_in(interner) // FIXME shift
+                }
+            }
             None => {
                 // Normalize all inference vars which have been unified into a
                 // single variable. Ena calls this the "root" variable.

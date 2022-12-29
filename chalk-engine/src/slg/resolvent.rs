@@ -445,20 +445,6 @@ impl<'i, I: Interner> Zipper<I> for AnswerSubstitutor<'i, I> {
                     substitution_b.as_slice(interner),
                 )
             }
-            (
-                TyKind::AssociatedType(id_a, substitution_a),
-                TyKind::AssociatedType(id_b, substitution_b),
-            ) => {
-                if id_a != id_b {
-                    return Err(NoSolution);
-                }
-                self.zip_substs(
-                    variance,
-                    None,
-                    substitution_a.as_slice(interner),
-                    substitution_b.as_slice(interner),
-                )
-            }
             (TyKind::Scalar(scalar_a), TyKind::Scalar(scalar_b)) => {
                 Zip::zip_with(self, variance, scalar_a, scalar_b)
             }

@@ -66,6 +66,12 @@ impl<'t, I: Interner> Unifier<'t, I> {
         }
     }
 
+    fn push_goal(&mut self, goal: InEnvironment<Goal<I>>) {
+        debug!(?goal, "pushing goal");
+
+        self.goals.push(goal);
+    }
+
     /// The main entry point for the `Unifier` type and really the
     /// only type meant to be called externally. Performs a
     /// relation of `a` and `b` and returns the Unification Result.
@@ -110,6 +116,8 @@ impl<'t, I: Interner> Unifier<'t, I> {
         if a.kind(interner) == b.kind(interner) {
             return Ok(());
         }
+
+        const UNIFY_ALIAS: bool = true;
 
         match (a.kind(interner), b.kind(interner)) {
             // Relating two inference variables:
@@ -181,6 +189,154 @@ impl<'t, I: Interner> Unifier<'t, I> {
                 a, b
             ),
 
+            (&TyKind::InferenceVar(var, _), &TyKind::Alias(ref alias)) => {
+                let variance = variance.invert();
+
+                match variance {
+                    Variance::Invariant => {
+                        if UNIFY_ALIAS {
+                            self.unify_general_var_specific_ty(var.into(), b.clone())?;
+                        } else {
+                            /*
+                            let ena_var = self
+                                .table
+                                .new_variable(UniverseIndex::root());
+                            self.unify_general_var_specific_ty(ena_var.into(), b.clone())?;
+                            */
+                            let eq_goal: Goal<_> = EqGoal {
+                                //a: ena_var.to_ty(interner).cast(interner),
+                                a: b.clone().cast(interner),
+                                b: a.clone().cast(interner),
+                            }
+                            .cast(interner);
+
+                            let normalizes_goal: Goal<_> = AliasEq {
+                                alias: alias.clone(),
+                                ty: a.clone(),
+                            }
+                            .cast(interner);
+
+                            let any_goal = GoalData::Any(Goals::from_iter(
+                                interner,
+                                //[eq_goal, normalizes_goal],
+                                [normalizes_goal],
+                            ))
+                            .intern(interner);
+                            self.push_goal(InEnvironment::new(self.environment, any_goal));
+                        }
+
+                        Ok(())
+
+                        /*
+                        let normalizes_goal: Goal<_> = AliasEq {
+                            alias: alias.clone(),
+                            ty: a.clone(),
+                        }
+                        .cast(interner);
+                        let any_goal = GoalData::Any(Goals::from_iter(
+                            interner,
+                            [normalizes_goal],
+                        ))
+                        .intern(interner);
+                        self.push_goal(InEnvironment::new(self.environment, any_goal));
+                        Ok(())
+                        //self.unify_general_var_specific_ty(var, b.clone())
+                        */
+                    }
+                    Variance::Covariant | Variance::Contravariant => {
+                        let normalizes_goal_eq: Goal<_> = AliasEq {
+                            alias: alias.clone(),
+                            ty: a.clone(),
+                        }
+                        .cast(interner);
+
+                        let var = self
+                            .table
+                            .new_variable(UniverseIndex::root())
+                            .to_ty(interner);
+                        let normalizes_goal_sub = AliasEq {
+                            alias: alias.clone(),
+                            ty: var.clone(),
+                        }
+                        .cast(interner);
+
+                        let any_goal = GoalData::Any(Goals::from_iter(
+                            interner,
+                            [normalizes_goal_sub, normalizes_goal_eq],
+                        ))
+                        .intern(interner);
+                        self.push_goal(InEnvironment::new(self.environment, any_goal));
+
+                        self.relate_ty_ty(variance, &var, a)
+                    }
+                }
+            }
+            (&TyKind::Alias(ref alias), &TyKind::InferenceVar(var, _)) => {
+                let variance = variance;
+
+                match variance {
+                    Variance::Invariant => {
+                        if UNIFY_ALIAS {
+                            self.unify_general_var_specific_ty(var, a.clone())?;
+                        } else {
+                            /*
+                            let ena_var = self
+                                .table
+                                .new_variable(UniverseIndex::root());
+                            self.unify_general_var_specific_ty(ena_var.into(), a.clone())?;
+                            */
+                            let eq_goal: Goal<_> = EqGoal {
+                                //a: ena_var.to_ty(interner).cast(interner),
+                                a: a.clone().cast(interner),
+                                b: b.clone().cast(interner),
+                            }
+                            .cast(interner);
+
+                            let normalizes_goal: Goal<_> = AliasEq {
+                                alias: alias.clone(),
+                                ty: b.clone(),
+                            }
+                            .cast(interner);
+
+                            let any_goal = GoalData::Any(Goals::from_iter(
+                                interner,
+                                [eq_goal, normalizes_goal],
+                            ))
+                            .intern(interner);
+                            self.push_goal(InEnvironment::new(self.environment, any_goal));
+                        }
+
+                        Ok(())
+                    }
+                    Variance::Covariant | Variance::Contravariant => {
+                        let normalizes_goal_eq: Goal<_> = AliasEq {
+                            alias: alias.clone(),
+                            ty: a.clone(),
+                        }
+                        .cast(interner);
+
+                        let var = self
+                            .table
+                            .new_variable(UniverseIndex::root())
+                            .to_ty(interner);
+                        let normalizes_goal_sub = AliasEq {
+                            alias: alias.clone(),
+                            ty: var.clone(),
+                        }
+                        .cast(interner);
+
+                        let any_goal = GoalData::Any(Goals::from_iter(
+                            interner,
+                            [normalizes_goal_sub, normalizes_goal_eq],
+                        ))
+                        .intern(interner);
+                        self.push_goal(InEnvironment::new(self.environment, any_goal));
+
+                        self.relate_ty_ty(variance, &var, a)
+                    }
+                }
+            }
+
             // Unifying an alias type with another alias.
             (&TyKind::Alias(ref alias_a), &TyKind::Alias(ref alias_b)) => {
                 let a_subst = alias_a.substitution();
@@ -209,8 +365,8 @@ impl<'t, I: Interner> Unifier<'t, I> {
                             [eq_substs_goal, normalizes_goal],
                         ))
                         .intern(interner);
-                        self.goals
-                            .push(InEnvironment::new(self.environment, any_goal));
+                        self.push_goal(InEnvironment::new(self.environment, any_goal));
+
                         Ok(())
                     }
                     Variance::Covariant | Variance::Contravariant => {
@@ -228,8 +384,7 @@ impl<'t, I: Interner> Unifier<'t, I> {
                             [eq_substs_goal, normalizes_goal],
                         ))
                         .intern(interner);
-                        self.goals
-                            .push(InEnvironment::new(self.environment, any_goal));
+                        self.push_goal(InEnvironment::new(self.environment, any_goal));
                         self.relate_ty_ty(variance, &var, a)
                     }
                 }
@@ -244,7 +399,7 @@ impl<'t, I: Interner> Unifier<'t, I> {
                 self.relate_var_ty(variance, var, kind, &ty)
             }
             (ty_data, &TyKind::InferenceVar(var, kind)) => {
-                // We need to invert the variance if inference var is `b` because we pass it in
+                // We need to invert `the variance if inference var is `b` because we pass it in
                 // as `a` to relate_var_ty
                 let ty = ty_data.clone().intern(interner);
                 self.relate_var_ty(variance.invert(), var, kind, &ty)
@@ -267,20 +422,6 @@ impl<'t, I: Interner> Unifier<'t, I> {
                 self.zip_substs(
                     variance,
                     Some(self.unification_database().adt_variance(*id_a)),
-                    substitution_a.as_slice(interner),
-                    substitution_b.as_slice(interner),
-                )
-            }
-            (
-                TyKind::AssociatedType(id_a, substitution_a),
-                TyKind::AssociatedType(id_b, substitution_b),
-            ) => {
-                if id_a != id_b {
-                    return Err(NoSolution);
-                }
-                self.zip_substs(
-                    variance,
-                    None, // TODO: AssociatedType variances?
                     substitution_a.as_slice(interner),
                     substitution_b.as_slice(interner),
                 )
@@ -515,7 +656,7 @@ impl<'t, I: Interner> Unifier<'t, I> {
         let interner = self.interner;
         match variance {
             Variance::Invariant => {
-                self.goals.push(InEnvironment::new(
+                self.push_goal(InEnvironment::new(
                     self.environment,
                     AliasEq {
                         alias: alias.clone(),
@@ -530,7 +671,7 @@ impl<'t, I: Interner> Unifier<'t, I> {
                     .table
                     .new_variable(UniverseIndex::root())
                     .to_ty(interner);
-                self.goals.push(InEnvironment::new(
+                self.push_goal(InEnvironment::new(
                     self.environment,
                     AliasEq {
                         alias: alias.clone(),
@@ -570,11 +711,6 @@ impl<'t, I: Interner> Unifier<'t, I> {
                 )
                 .intern(interner)
             }
-            TyKind::AssociatedType(id, substitution) => TyKind::AssociatedType(
-                *id,
-                self.generalize_substitution(substitution, universe_index, |_| variance),
-            )
-            .intern(interner),
             TyKind::Scalar(scalar) => TyKind::Scalar(*scalar).intern(interner),
             TyKind::Str => TyKind::Str.intern(interner),
             TyKind::Tuple(arity, substitution) => TyKind::Tuple(
@@ -783,10 +919,32 @@ impl<'t, I: Interner> Unifier<'t, I> {
                 // generic over, so we just relate directly to it
                 ty.clone()
             }
-            TyKind::Alias(_) => {
-                let ena_var = self.table.new_variable(universe_index);
-                ena_var.to_ty(interner)
-            }
+            TyKind::Alias(alias) => match alias {
+                AliasTy::Projection(ProjectionTy {
+                    associated_ty_id,
+                    substitution,
+                }) => TyKind::Alias(AliasTy::Projection(ProjectionTy {
+                    associated_ty_id: *associated_ty_id,
+                    substitution: self.generalize_substitution(
+                        substitution,
+                        universe_index,
+                        |_| variance,
+                    ),
+                }))
+                .intern(interner),
+                AliasTy::Opaque(OpaqueTy {
+                    opaque_ty_id,
+                    substitution,
+                }) => TyKind::Alias(AliasTy::Opaque(OpaqueTy {
+                    opaque_ty_id: *opaque_ty_id,
+                    substitution: self.generalize_substitution(
+                        substitution,
+                        universe_index,
+                        |_| variance,
+                    ),
+                }))
+                .intern(interner),
+            },
             TyKind::InferenceVar(_var, kind) => {
                 if matches!(kind, TyVariableKind::Integer | TyVariableKind::Float) {
                     ty.clone()
@@ -1197,7 +1355,7 @@ impl<'t, I: Interner> Unifier<'t, I> {
             a, b, variance
         );
         if matches!(variance, Variance::Invariant | Variance::Contravariant) {
-            self.goals.push(InEnvironment::new(
+            self.push_goal(InEnvironment::new(
                 self.environment,
                 WhereClause::LifetimeOutlives(LifetimeOutlives {
                     a: a.clone(),
@@ -1207,7 +1365,7 @@ impl<'t, I: Interner> Unifier<'t, I> {
             ));
         }
         if matches!(variance, Variance::Invariant | Variance::Covariant) {
-            self.goals.push(InEnvironment::new(
+            self.push_goal(InEnvironment::new(
                 self.environment,
                 WhereClause::LifetimeOutlives(LifetimeOutlives { a: b, b: a }).cast(self.interner),
             ));
@@ -1217,8 +1375,7 @@ impl<'t, I: Interner> Unifier<'t, I> {
     /// Pushes a goal of `a` being a subtype of `b`.
     fn push_subtype_goal(&mut self, a: Ty<I>, b: Ty<I>) {
         let subtype_goal = GoalData::SubtypeGoal(SubtypeGoal { a, b }).intern(self.interner());
-        self.goals
-            .push(InEnvironment::new(self.environment, subtype_goal));
+        self.push_goal(InEnvironment::new(self.environment, subtype_goal));
     }
 }
 

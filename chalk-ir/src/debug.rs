@@ -208,9 +208,6 @@ impl<I: Interner> Debug for TyKind<I> {
             TyKind::Placeholder(index) => write!(fmt, "{:?}", index),
             TyKind::Function(function) => write!(fmt, "{:?}", function),
             TyKind::Adt(id, substitution) => write!(fmt, "{:?}<{:?}>", id, substitution),
-            TyKind::AssociatedType(assoc_ty, substitution) => {
-                write!(fmt, "{:?}<{:?}>", assoc_ty, substitution)
-            }
             TyKind::Scalar(scalar) => write!(fmt, "{:?}", scalar),
             TyKind::Str => write!(fmt, "Str"),
             TyKind::Tuple(arity, substitution) => write!(fmt, "{:?}<{:?}>", arity, substitution),
@@ -503,9 +500,6 @@ impl<'a, I: Interner> Debug for TyKindDebug<'a, I> {
             TyKind::Function(function) => write!(fmt, "{:?}", function),
             TyKind::Adt(id, substitution) => {
                 write!(fmt, "{:?}{:?}", id, substitution.with_angle(interner))
-            }
-            TyKind::AssociatedType(assoc_ty, substitution) => {
-                write!(fmt, "{:?}{:?}", assoc_ty, substitution.with_angle(interner))
             }
             TyKind::Scalar(scalar) => write!(fmt, "{:?}", scalar),
             TyKind::Str => write!(fmt, "Str"),

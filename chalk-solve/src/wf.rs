@@ -109,11 +109,6 @@ impl<I: Interner> TypeVisitor<I> for InputTypeCollector<I> {
                 id.visit_with(self, outer_binder);
                 substitution.visit_with(self, outer_binder)
             }
-            TyKind::AssociatedType(assoc_ty, substitution) => {
-                push_ty();
-                assoc_ty.visit_with(self, outer_binder);
-                substitution.visit_with(self, outer_binder)
-            }
             TyKind::Scalar(scalar) => {
                 push_ty();
                 scalar.visit_with(self, outer_binder)

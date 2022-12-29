@@ -198,10 +198,6 @@ impl<I: Interner> MayInvalidate<I> {
             (TyKind::Adt(id_a, substitution_a), TyKind::Adt(id_b, substitution_b)) => {
                 self.aggregate_name_and_substs(id_a, substitution_a, id_b, substitution_b)
             }
-            (
-                TyKind::AssociatedType(id_a, substitution_a),
-                TyKind::AssociatedType(id_b, substitution_b),
-            ) => self.aggregate_name_and_substs(id_a, substitution_a, id_b, substitution_b),
             (TyKind::Scalar(scalar_a), TyKind::Scalar(scalar_b)) => scalar_a != scalar_b,
             (TyKind::Str, TyKind::Str) => false,
             (TyKind::Tuple(arity_a, substitution_a), TyKind::Tuple(arity_b, substitution_b)) => {

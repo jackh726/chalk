@@ -799,7 +799,7 @@ impl<I: Interner> ToProgramClauses<I> for AssociatedTyDatum<I> {
         let interner = builder.interner();
         let binders = self.binders.clone();
         builder.push_binders(
-            binders,
+            binders.clone(),
             |builder,
              AssociatedTyDatumBound {
                  where_clauses,
@@ -816,6 +816,20 @@ impl<I: Interner> ToProgramClauses<I> for AssociatedTyDatum<I> {
                 // Retrieve the trait ref embedding the associated type
                 let trait_ref = builder.db.trait_ref_from_projection(&projection);
 
+                let projection_eq = AliasEq {
+                    alias: AliasTy::Projection(projection.clone()),
+                    ty: projection_ty.clone(),
+                };
+
+                // Fallback rule. The solver uses this to move between the projection
+                // and placeholder type.
+                //
+                //    forall<Self> {
+                //        AliasEq(<Self as Foo>::Assoc = <Self as Foo>::Assoc).
+                //    }
+                builder.push_fact_with_priority(projection_eq, None, ClausePriority::Low);
+
+                /*
                 // Construct an application from the projection. So if we have `<T as Iterator>::Item`,
                 // we would produce `(Iterator::Item)<T>`.
                 let ty = TyKind::AssociatedType(self.id, substitution).intern(interner);
@@ -873,6 +887,7 @@ impl<I: Interner> ToProgramClauses<I> for AssociatedTyDatum<I> {
                         );
                     });
                 }
+                */
 
                 // Reverse rule for implied bounds.
                 //
@@ -903,7 +918,7 @@ impl<I: Interner> ToProgramClauses<I> for AssociatedTyDatum<I> {
 
                     // `AliasEq(<T as Foo>::Assoc = U)`
                     let projection_eq = AliasEq {
-                        alias: AliasTy::Projection(projection),
+                        alias: AliasTy::Projection(projection.clone()),
                         ty,
                     };
 
@@ -915,6 +930,20 @@ impl<I: Interner> ToProgramClauses<I> for AssociatedTyDatum<I> {
                     //    }
                     builder.push_clause(projection_eq, Some(normalize));
                 });
+
+                // Given the trait definition
+                // ```notrust
+                // trait Trait<P1..Pn> {
+                //   type Item<Pn..Pm>: Bounds where WC;
+                // }
+                // ```
+                //
+                // A projection `<X as Trait<T1..Tn>>::Item<Tn..Tm>` is WF if
+                // 1) `X: Trait<T1..Tn>` holds
+                // 2) The where clauses `WC` hold
+                let wf = projection_ty.well_formed();
+                let trait_implemented = DomainGoal::WellFormed(WellFormed::Trait(trait_ref));
+                builder.push_clause(wf, [trait_implemented]);
             },
         );
     }

@@ -583,9 +583,6 @@ pub enum TyKind<I: Interner> {
     /// For example, a type like `Vec<T>`.
     Adt(AdtId<I>, Substitution<I>),
 
-    /// an associated type like `Iterator::Item`; see `AssociatedType` for details
-    AssociatedType(AssocTypeId<I>, Substitution<I>),
-
     /// a scalar type like `bool` or `u32`
     Scalar(Scalar),
 
@@ -687,7 +684,6 @@ impl<I: Interner> TyKind<I> {
     pub fn compute_flags(&self, interner: I) -> TypeFlags {
         match self {
             TyKind::Adt(_, substitution)
-            | TyKind::AssociatedType(_, substitution)
             | TyKind::Tuple(_, substitution)
             | TyKind::Closure(_, substitution)
             | TyKind::Generator(_, substitution)
