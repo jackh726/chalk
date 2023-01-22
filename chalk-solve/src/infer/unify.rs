@@ -117,8 +117,6 @@ impl<'t, I: Interner> Unifier<'t, I> {
             return Ok(());
         }
 
-        const UNIFY_ALIAS: bool = true;
-
         match (a.kind(interner), b.kind(interner)) {
             // Relating two inference variables:
             // First, if either variable is a float or int kind, then we always
@@ -194,54 +192,8 @@ impl<'t, I: Interner> Unifier<'t, I> {
 
                 match variance {
                     Variance::Invariant => {
-                        if UNIFY_ALIAS {
-                            self.unify_general_var_specific_ty(var.into(), b.clone())?;
-                        } else {
-                            /*
-                            let ena_var = self
-                                .table
-                                .new_variable(UniverseIndex::root());
-                            self.unify_general_var_specific_ty(ena_var.into(), b.clone())?;
-                            */
-                            let eq_goal: Goal<_> = EqGoal {
-                                //a: ena_var.to_ty(interner).cast(interner),
-                                a: b.clone().cast(interner),
-                                b: a.clone().cast(interner),
-                            }
-                            .cast(interner);
-
-                            let normalizes_goal: Goal<_> = AliasEq {
-                                alias: alias.clone(),
-                                ty: a.clone(),
-                            }
-                            .cast(interner);
-
-                            let any_goal = GoalData::Any(Goals::from_iter(
-                                interner,
-                                //[eq_goal, normalizes_goal],
-                                [normalizes_goal],
-                            ))
-                            .intern(interner);
-                            self.push_goal(InEnvironment::new(self.environment, any_goal));
-                        }
-
+                        self.table.register_alias_var_constraint(EnaVariable::from_index(var.index()), alias.clone());
                         Ok(())
-
-                        /*
-                        let normalizes_goal: Goal<_> = AliasEq {
-                            alias: alias.clone(),
-                            ty: a.clone(),
-                        }
-                        .cast(interner);
-                        let any_goal = GoalData::Any(Goals::from_iter(
-                            interner,
-                            [normalizes_goal],
-                        ))
-                        .intern(interner);
-                        self.push_goal(InEnvironment::new(self.environment, any_goal));
-                        Ok(())
-                        //self.unify_general_var_specific_ty(var, b.clone())
-                        */
                     }
                     Variance::Covariant | Variance::Contravariant => {
                         let normalizes_goal_eq: Goal<_> = AliasEq {
@@ -276,36 +228,7 @@ impl<'t, I: Interner> Unifier<'t, I> {
 
                 match variance {
                     Variance::Invariant => {
-                        if UNIFY_ALIAS {
-                            self.unify_general_var_specific_ty(var, a.clone())?;
-                        } else {
-                            /*
-                            let ena_var = self
-                                .table
-                                .new_variable(UniverseIndex::root());
-                            self.unify_general_var_specific_ty(ena_var.into(), a.clone())?;
-                            */
-                            let eq_goal: Goal<_> = EqGoal {
-                                //a: ena_var.to_ty(interner).cast(interner),
-                                a: a.clone().cast(interner),
-                                b: b.clone().cast(interner),
-                            }
-                            .cast(interner);
-
-                            let normalizes_goal: Goal<_> = AliasEq {
-                                alias: alias.clone(),
-                                ty: b.clone(),
-                            }
-                            .cast(interner);
-
-                            let any_goal = GoalData::Any(Goals::from_iter(
-                                interner,
-                                [eq_goal, normalizes_goal],
-                            ))
-                            .intern(interner);
-                            self.push_goal(InEnvironment::new(self.environment, any_goal));
-                        }
-
+                        self.table.register_alias_var_constraint(EnaVariable::from_index(var.index()), alias.clone());
                         Ok(())
                     }
                     Variance::Covariant | Variance::Contravariant => {
@@ -355,18 +278,7 @@ impl<'t, I: Interner> Unifier<'t, I> {
 
                 match variance {
                     Variance::Invariant => {
-                        let normalizes_goal = AliasEq {
-                            alias: alias_b.clone(),
-                            ty: a.clone(),
-                        }
-                        .cast(interner);
-                        let any_goal = GoalData::Any(Goals::from_iter(
-                            interner,
-                            [eq_substs_goal, normalizes_goal],
-                        ))
-                        .intern(interner);
-                        self.push_goal(InEnvironment::new(self.environment, any_goal));
-
+                        self.table.register_alias_alias_constraint(alias_a.clone(), alias_b.clone());
                         Ok(())
                     }
                     Variance::Covariant | Variance::Contravariant => {
@@ -1158,11 +1070,8 @@ impl<'t, I: Interner> Unifier<'t, I> {
 
         match (a.data(interner), b.data(interner)) {
             (&LifetimeData::InferenceVar(var_a), &LifetimeData::InferenceVar(var_b)) => {
-                let var_a = EnaVariable::from(var_a);
-                let var_b = EnaVariable::from(var_b);
                 debug!(?var_a, ?var_b);
-                self.table.unify.unify_var_var(var_a, var_b).unwrap();
-                Ok(())
+                self.unify_var_var(var_a, var_b)
             }
 
             (
@@ -1277,13 +1186,7 @@ impl<'t, I: Interner> Unifier<'t, I> {
             // ena table.
             (&ConstValue::InferenceVar(var1), &ConstValue::InferenceVar(var2)) => {
                 debug!(?var1, ?var2, "relate_ty_ty");
-                let var1 = EnaVariable::from(var1);
-                let var2 = EnaVariable::from(var2);
-                self.table
-                    .unify
-                    .unify_var_var(var1, var2)
-                    .expect("unification of two unbound variables cannot fail");
-                Ok(())
+                self.unify_var_var(var1, var2)
             }
 
             // Unifying an inference variables with a non-inference variable.

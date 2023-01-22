@@ -322,6 +322,7 @@ fn projection_equality_nested() {
 #[test]
 fn iterator_flatten() {
     test! {
+        disable_coherence;
         program {
             trait Iterator {
                 type Item;
@@ -352,7 +353,7 @@ fn iterator_flatten() {
                     }
                 }
             }
-        } yields[SolverChoice::slg_default()] {
+        } yields_all[SolverChoice::slg_default()] {
             expect![["Ambiguous; definite substitution for<?U1> { [?0 := <^0.0 as Iterator>::Item] }"]]
         }
     }

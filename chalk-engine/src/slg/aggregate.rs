@@ -48,7 +48,7 @@ impl<I: Interner> AggregateOps<I> for SlgContextOps<'_, I> {
             }
             AnswerResult::Answer(answer) => answer,
         };
-        dbg!(&subst, ambiguous);
+        //dbg!(&subst, ambiguous);
 
         // Otherwise, we either have >1 answer, or else we have
         // ambiguity.  Either way, we are only going to be giving back
@@ -81,7 +81,7 @@ impl<I: Interner> AggregateOps<I> for SlgContextOps<'_, I> {
             }
 
             let next_answer = answers.peek_answer(&should_continue);
-            dbg!(&next_answer);
+            //dbg!(&next_answer);
             match next_answer {
                 AnswerResult::QuantumExceeded => {
                     break if subst.value.subst.is_identity_subst(interner) {
@@ -94,7 +94,7 @@ impl<I: Interner> AggregateOps<I> for SlgContextOps<'_, I> {
                 }
                 AnswerResult::Floundered => return Some(Solution::Ambig(Guidance::Unknown)),
                 AnswerResult::NoMoreSolutions => {
-                    dbg!(num_answers, num_solutions, ambiguous);
+                    //dbg!(num_answers, num_solutions, ambiguous);
                     break if num_solutions == 1 && !ambiguous {
                         Some(Solution::Unique(subst))
                     } else {
