@@ -968,7 +968,7 @@ impl<I: Interner> Debug for Constraint<I> {
 impl<I: Interner> Display for ConstrainedSubst<I> {
     #[rustfmt::skip]
     fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), Error> {
-        let ConstrainedSubst { subst, constraints } = self;
+        let ConstrainedSubst { subst, constraints, alias_egraph } = self;
 
         let mut first = true;
 
@@ -982,6 +982,13 @@ impl<I: Interner> Display for ConstrainedSubst<I> {
         if constraints != "[]" {
             if !first { write!(f, ", ")?; }
             write!(f, "lifetime constraints {}", constraints)?;
+            first = false;
+        }
+
+        if !alias_egraph.is_empty() {
+            if !first { write!(f, ", ")?; }
+            let alias_egraph = format!("{}", Fmt(|f| Debug::fmt(alias_egraph, f)));
+            write!(f, "alias_egraph {}", alias_egraph)?;
             first = false;
         }
 

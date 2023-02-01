@@ -354,7 +354,7 @@ fn iterator_flatten() {
                 }
             }
         } yields_all[SolverChoice::slg_default()] {
-            expect![["Ambiguous; definite substitution for<?U1> { [?0 := <^0.0 as Iterator>::Item] }"]]
+            expect![["for<?U1> { substitution [?0 := ^0.0], alias_egraph [(<Flatten<!1_0> as Iterator>::Item, ^0.0)] }"]]
         }
     }
 }

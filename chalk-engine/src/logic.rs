@@ -109,6 +109,7 @@ impl<I: Interner> Forest<I> {
                         value: ConstrainedSubst {
                             subst: answer.subst.value.subst.clone(),
                             constraints: answer.subst.value.constraints.clone(),
+                            alias_egraph: answer.subst.value.alias_egraph.clone(),
                         },
                     },
                     ambiguous: answer.ambiguous,
@@ -347,6 +348,7 @@ impl<I: Interner> Forest<I> {
                         delayed_subgoals: vec![],
                         answer_time: TimeStamp::default(),
                         floundered_subgoals: vec![],
+                        alias_egraph: vec![],
                     };
                     ex_clause
                         .subgoals
@@ -1159,6 +1161,7 @@ impl<'forest, I: Interner> SolveState<'forest, I> {
             AnswerSubst {
                 subst,
                 constraints,
+                alias_egraph,
                 delayed_subgoals,
             },
         ) = chalk_solve::infer::InferenceTable::from_canonical(
@@ -1183,6 +1186,7 @@ impl<'forest, I: Interner> SolveState<'forest, I> {
                 delayed_subgoals: Vec::new(),
                 answer_time: TimeStamp::default(),
                 floundered_subgoals: Vec::new(),
+                alias_egraph,
             },
             selected_subgoal: None,
             last_pursued_time: TimeStamp::default(),
@@ -1481,6 +1485,7 @@ impl<'forest, I: Interner> SolveState<'forest, I> {
             delayed_subgoals,
             answer_time: _,
             floundered_subgoals,
+            alias_egraph,
         } = strand.ex_clause;
         // If there are subgoals left, they should be followed
         assert!(subgoals.is_empty());
@@ -1544,6 +1549,7 @@ impl<'forest, I: Interner> SolveState<'forest, I> {
             value: AnswerSubst {
                 subst,
                 constraints: Constraints::from_iter(self.context.program().interner(), constraints),
+                alias_egraph,
                 delayed_subgoals: filtered_delayed_subgoals,
             },
         };

@@ -30,6 +30,7 @@ impl<I: Interner> Forest<I> {
             delayed_subgoals: vec![],
             answer_time: TimeStamp::default(),
             floundered_subgoals: vec![],
+            alias_egraph: vec![],
         };
 
         // A stack of higher-level goals to process.

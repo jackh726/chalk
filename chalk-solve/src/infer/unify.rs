@@ -1,3 +1,4 @@
+use super::alias_egraph::Egraph;
 use super::var::*;
 use super::*;
 use crate::debug_span;
@@ -43,11 +44,13 @@ struct Unifier<'t, I: Interner> {
     goals: Vec<InEnvironment<Goal<I>>>,
     interner: I,
     db: &'t dyn UnificationDatabase<I>,
+    alias_egraph: Egraph<I>,
 }
 
 #[derive(Debug)]
 pub struct RelationResult<I: Interner> {
     pub goals: Vec<InEnvironment<Goal<I>>>,
+    pub alias_egraph: Vec<(AliasTy<I>, Ty<I>)>,
 }
 
 impl<'t, I: Interner> Unifier<'t, I> {
@@ -63,6 +66,7 @@ impl<'t, I: Interner> Unifier<'t, I> {
             goals: vec![],
             interner,
             db,
+            alias_egraph: Egraph::new(),
         }
     }
 
@@ -98,7 +102,7 @@ impl<'t, I: Interner> Unifier<'t, I> {
             }
             _ => true,
         });
-        Ok(RelationResult { goals })
+        Ok(RelationResult { goals, alias_egraph: self.alias_egraph.alias_egraph(interner) })
     }
 
     /// Relate `a`, `b` with the variance such that if `variance = Covariant`, `a` is
@@ -192,8 +196,7 @@ impl<'t, I: Interner> Unifier<'t, I> {
 
                 match variance {
                     Variance::Invariant => {
-                        self.table.register_alias_var_constraint(EnaVariable::from_index(var.index()), alias.clone());
-                        Ok(())
+                        self.alias_egraph.register_alias_var_constraint(interner, self.table, EnaVariable::from_index(var.index()), alias.clone())
                     }
                     Variance::Covariant | Variance::Contravariant => {
                         let normalizes_goal_eq: Goal<_> = AliasEq {
@@ -228,8 +231,7 @@ impl<'t, I: Interner> Unifier<'t, I> {
 
                 match variance {
                     Variance::Invariant => {
-                        self.table.register_alias_var_constraint(EnaVariable::from_index(var.index()), alias.clone());
-                        Ok(())
+                        self.alias_egraph.register_alias_var_constraint(interner, self.table, EnaVariable::from_index(var.index()), alias.clone())
                     }
                     Variance::Covariant | Variance::Contravariant => {
                         let normalizes_goal_eq: Goal<_> = AliasEq {
@@ -278,8 +280,7 @@ impl<'t, I: Interner> Unifier<'t, I> {
 
                 match variance {
                     Variance::Invariant => {
-                        self.table.register_alias_alias_constraint(alias_a.clone(), alias_b.clone());
-                        Ok(())
+                        self.alias_egraph.register_alias_alias_constraint(self.table, alias_a.clone(), alias_b.clone())
                     }
                     Variance::Covariant | Variance::Contravariant => {
                         let var = self

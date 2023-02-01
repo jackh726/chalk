@@ -101,20 +101,13 @@ impl<I: Interner> ResolventOps<I> for InferenceTable<I> {
             subst: subst.clone(),
             ambiguous: false,
             constraints: vec![],
-            subgoals: vec![],
+            // Add the subgoals/region-constraints that unification gave us.
+            subgoals: unification_result.goals.into_iter().casted(interner).map(Literal::Positive).collect(),
             delayed_subgoals: vec![],
             answer_time: TimeStamp::default(),
             floundered_subgoals: vec![],
+            alias_egraph: unification_result.alias_egraph,
         };
-
-        // Add the subgoals/region-constraints that unification gave us.
-        ex_clause.subgoals.extend(
-            unification_result
-                .goals
-                .into_iter()
-                .casted(interner)
-                .map(Literal::Positive),
-        );
 
         ex_clause
             .constraints
@@ -234,6 +227,8 @@ impl<I: Interner> ResolventOps<I> for InferenceTable<I> {
             // answer is false or unknown) it doesn't matter.
             constraints: answer_constraints,
 
+            alias_egraph,
+
             delayed_subgoals,
         } = self.instantiate_canonical(interner, canonical_answer_subst);
 
@@ -250,6 +245,9 @@ impl<I: Interner> ResolventOps<I> for InferenceTable<I> {
         ex_clause
             .constraints
             .extend(answer_constraints.as_slice(interner).to_vec());
+        let mut new_egraph = chalk_solve::infer::alias_egraph::Egraph::from_constraints(interner, self, ex_clause.alias_egraph.clone())?;
+        new_egraph.register_egraph(interner, self, alias_egraph)?;
+        ex_clause.alias_egraph = new_egraph.alias_egraph(interner);
         // at that point we should only have goals that stemmed
         // from non trivial self cycles
         ex_clause.delayed_subgoals.extend(delayed_subgoals);

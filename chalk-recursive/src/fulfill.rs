@@ -407,7 +407,7 @@ impl<'s, I: Interner, Solver: SolveDatabase<I>> Fulfill<'s, I, Solver> {
     ) {
         use chalk_solve::infer::ucanonicalize::UniverseMapExt;
         let subst = universes.map_from_canonical(self.interner(), &subst);
-        let ConstrainedSubst { subst, constraints } = self
+        let ConstrainedSubst { subst, constraints, alias_egraph } = self
             .infer
             .instantiate_canonical(self.solver.interner(), subst);
 
@@ -540,6 +540,7 @@ impl<'s, I: Interner, Solver: SolveDatabase<I>> Fulfill<'s, I, Solver> {
                 ConstrainedSubst {
                     subst: self.subst,
                     constraints,
+                    alias_egraph: vec![],
                 },
             );
             return Ok(Solution::Unique(constrained.0));

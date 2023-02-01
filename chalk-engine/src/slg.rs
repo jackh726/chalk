@@ -64,6 +64,7 @@ impl<I: Interner> SlgContextOps<'_, I> {
                 ConstrainedSubst {
                     subst,
                     constraints: Constraints::empty(self.program.interner()),
+                    alias_egraph: vec![],
                 },
             )
             .quantified

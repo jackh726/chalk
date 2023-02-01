@@ -6,7 +6,8 @@ use chalk_ir::cast::Cast;
 use chalk_ir::interner::Interner;
 use chalk_ir::*;
 use chalk_solve::ext::*;
-use chalk_solve::infer::InferenceTable;
+use chalk_solve::infer::{InferenceTable, alias_egraph};
+use chalk_solve::infer::alias_egraph::Egraph;
 use chalk_solve::solve::{Guidance, Solution};
 use rustc_hash::FxHashMap;
 
@@ -215,9 +216,12 @@ fn merge_into_guidance<I: Interner>(
         value: ConstrainedSubst {
             subst: subst1,
             constraints: _,
+            alias_egraph,
         },
         binders: _,
     } = answer;
+
+    let mut egraph = Egraph::from_constraints(interner, &mut infer, guidance.value.alias_egraph).unwrap();
 
     // Collect the types that the two substitutions have in
     // common.
@@ -251,8 +255,7 @@ fn merge_into_guidance<I: Interner>(
                 infer: &mut infer,
                 universe,
                 interner,
-                alias_var_map: FxHashMap::default(),
-                alias_unification: ena::unify::UnificationTable::new(),
+                egraph: &mut egraph,
             };
             aggr.aggregate_generic_args(p1, p2)
         })
@@ -260,10 +263,13 @@ fn merge_into_guidance<I: Interner>(
 
     let aggr_subst = Substitution::from_iter(interner, aggr_generic_args);
 
+    egraph.register_egraph(interner, &mut infer, alias_egraph.clone()).unwrap();
+    let alias_egraph = egraph.alias_egraph(interner);
     let aggr_subst = ConstrainedSubst {
         subst: aggr_subst,
         // FIXME: if this is one solution, we need to keep the existing constraints
         constraints: Constraints::empty(interner),
+        alias_egraph,
     };
     (infer.canonicalize(interner, aggr_subst).quantified, true)
 }
@@ -314,8 +320,7 @@ struct AntiUnifier<'infer, I: Interner> {
     infer: &'infer mut InferenceTable<I>,
     universe: UniverseIndex,
     interner: I,
-    alias_var_map: FxHashMap<Ty<I>, u32>,
-    alias_unification: ena::unify::InPlaceUnificationTable<AliasVarTy<I>>,
+    egraph: &'infer mut Egraph<I>,
 }
 
 impl<I: Interner> AntiUnifier<'_, I> {
@@ -341,72 +346,24 @@ impl<I: Interner> AntiUnifier<'_, I> {
             | (TyKind::Dyn(_), TyKind::Dyn(_)) => self.new_ty_variable(),
 
             (
-                TyKind::Alias(AliasTy::Projection(proj1)),
-                TyKind::Alias(AliasTy::Projection(proj2)),
+                TyKind::Alias(alias_a),
+                TyKind::Alias(alias_b),
             ) => {
-                let alias_unification = &mut self.alias_unification;
-                let a_var = self.alias_var_map.entry(ty0.clone());
-                let a_var = a_var.or_insert_with(|| {
-                    let var = alias_unification.new_key(AliasValue::Unbound);
-                    var.index
-                });
-                let a_var = AliasVarTy::from_index(*a_var);
-
-                let b_var = self.alias_var_map.entry(ty1.clone());
-                let b_var = b_var.or_insert_with(|| {
-                    let var = alias_unification.new_key(AliasValue::Unbound);
-                    var.index
-                });
-                let b_var = AliasVarTy::from_index(*b_var);
-
-                let result = self.alias_unification.unify_var_var(a_var, b_var);
-                match result {
+                match self.egraph.register_alias_alias_constraint(self.infer, alias_a.clone(), alias_b.clone()) {
                     Ok(()) => ty0.clone(),
                     Err(_) => self.new_ty_variable(),
                 }
             }
 
-            (TyKind::Alias(AliasTy::Projection(proj1)), _) => {
-                let alias_unification = &mut self.alias_unification;
-                let a_var = self.alias_var_map.entry(ty0.clone());
-                let a_var = a_var.or_insert_with(|| {
-                    let var = alias_unification.new_key(AliasValue::Unbound);
-                    var.index
-                });
-                let a_var = AliasVarTy::from_index(*a_var);
-
-                let b_var = self.alias_var_map.entry(ty1.clone());
-                let b_var = b_var.or_insert_with(|| {
-                    let var = alias_unification.new_key(AliasValue::Bound(ty1.clone()));
-                    var.index
-                });
-                let b_var = AliasVarTy::from_index(*b_var);
-
-                let result = self.alias_unification.unify_var_var(a_var, b_var);
-                match result {
+            (TyKind::Alias(alias), _) => {
+                match self.egraph.register_alias_rigid_constraint(self.interner, self.infer, alias.clone(), ty1.clone()) {
                     Ok(()) => ty1.clone(),
                     Err(_) => self.new_ty_variable(),
                 }
             }
 
-            (_, TyKind::Alias(AliasTy::Projection(proj1))) => {
-                let alias_unification = &mut self.alias_unification;
-                let a_var = self.alias_var_map.entry(ty0.clone());
-                let a_var = a_var.or_insert_with(|| {
-                    let var = alias_unification.new_key(AliasValue::Bound(ty0.clone()));
-                    var.index
-                });
-                let a_var = AliasVarTy::from_index(*a_var);
-
-                let b_var = self.alias_var_map.entry(ty1.clone());
-                let b_var = b_var.or_insert_with(|| {
-                    let var = alias_unification.new_key(AliasValue::Unbound);
-                    var.index
-                });
-                let b_var = AliasVarTy::from_index(*b_var);
-
-                let result = self.alias_unification.unify_var_var(a_var, b_var);
-                match result {
+            (_, TyKind::Alias(alias)) => {
+                match self.egraph.register_alias_rigid_constraint(self.interner, self.infer, alias.clone(), ty0.clone()) {
                     Ok(()) => ty0.clone(),
                     Err(_) => self.new_ty_variable(),
                 }

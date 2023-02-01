@@ -63,6 +63,7 @@ impl<I: Interner> SolverStuff<UCanonicalGoal<I>, Fallible<Solution<I>>> for &dyn
                 value: ConstrainedSubst {
                     subst: goal.trivial_substitution(self.interner()),
                     constraints: Constraints::empty(self.interner()),
+                    alias_egraph: vec![],
                 },
                 binders: goal.canonical.binders.clone(),
             }))

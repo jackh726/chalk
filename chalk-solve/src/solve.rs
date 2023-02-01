@@ -131,6 +131,7 @@ impl<I: Interner> Solution<I> {
                 let value = ConstrainedSubst {
                     subst: canonical.value.clone(),
                     constraints: Constraints::empty(interner),
+                    alias_egraph: vec![],
                 };
                 Some(Canonical {
                     value,
@@ -150,6 +151,7 @@ impl<I: Interner> Solution<I> {
                 let value = ConstrainedSubst {
                     subst: canonical.value.clone(),
                     constraints: Constraints::empty(interner),
+                    alias_egraph: vec![],
                 };
                 Some(Canonical {
                     value,
@@ -188,10 +190,11 @@ impl<'a, I: Interner> fmt::Display for SolutionDisplay<'a, I> {
         match solution {
             // If a `Unique` solution has no associated data, omit the trailing semicolon.
             // This makes blessed test output nicer to read.
-            Solution::Unique(Canonical { binders, value: ConstrainedSubst { subst, constraints } } )
+            Solution::Unique(Canonical { binders, value: ConstrainedSubst { subst, constraints, alias_egraph } } )
                 if interner.constraints_data(constraints.interned()).is_empty()
                     && interner.substitution_data(subst.interned()).is_empty()
                     && interner.canonical_var_kinds_data(binders.interned()).is_empty()
+                    && alias_egraph.is_empty()
                 => write!(f, "Unique"),
 
             Solution::Unique(constrained) => write!(f, "Unique; {}", constrained.display(*interner)),

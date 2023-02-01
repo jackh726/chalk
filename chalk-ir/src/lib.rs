@@ -202,8 +202,8 @@ impl<I: Interner> Environment<I> {
 #[derive(Clone, Debug, PartialEq, Eq, Hash, TypeFoldable, TypeVisitable)]
 #[allow(missing_docs)]
 pub struct InEnvironment<G: HasInterner> {
-    pub environment: Environment<G::Interner>,
     pub goal: G,
+    pub environment: Environment<G::Interner>,
 }
 
 impl<G: HasInterner<Interner = I> + Copy, I: Interner> Copy for InEnvironment<G> where
@@ -3032,7 +3032,7 @@ pub struct ConstrainedSubst<I: Interner> {
     /// Region constraints that constrain the substitution.
     pub constraints: Constraints<I>,
 
-    
+    pub alias_egraph: Vec<(AliasTy<I>, Ty<I>)>,    
 }
 
 /// The resulting substitution after solving a goal.
@@ -3045,6 +3045,8 @@ pub struct AnswerSubst<I: Interner> {
 
     /// List of constraints that are part of the answer.
     pub constraints: Constraints<I>,
+
+    pub alias_egraph: Vec<(AliasTy<I>, Ty<I>)>,
 
     /// Delayed subgoals, used when the solver answered with an (incomplete) `Answer` (instead of a `CompleteAnswer`).
     pub delayed_subgoals: Vec<InEnvironment<Goal<I>>>,

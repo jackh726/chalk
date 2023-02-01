@@ -60,7 +60,7 @@ use chalk_derive::{HasInterner, TypeFoldable, TypeVisitable};
 use chalk_ir::interner::Interner;
 use chalk_ir::{
     AnswerSubst, Canonical, ConstrainedSubst, Constraint, DebruijnIndex, Goal, InEnvironment,
-    Substitution,
+    Substitution, AliasTy, Ty,
 };
 use std::ops::ControlFlow;
 
@@ -98,6 +98,8 @@ pub struct ExClause<I: Interner> {
 
     /// Region constraints we have accumulated.
     pub constraints: Vec<InEnvironment<Constraint<I>>>,
+
+    pub alias_egraph: Vec<(AliasTy<I>, Ty<I>)>,
 
     /// Subgoals: literals that must be proven
     pub subgoals: Vec<Literal<I>>,
