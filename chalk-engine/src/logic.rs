@@ -13,7 +13,7 @@ use chalk_ir::could_match::CouldMatch;
 use chalk_ir::interner::Interner;
 use chalk_ir::{
     AnswerSubst, Canonical, ConstrainedSubst, Constraints, FallibleOrFloundered, Floundered, Goal,
-    GoalData, InEnvironment, NoSolution, ProgramClause, Substitution, UCanonical, UniverseMap,
+    GoalData, InEnvironment, NoSolution, ProgramClause, Substitution, UCanonical, UniverseMap, AliasTy, Ty,
 };
 use chalk_solve::clauses::program_clauses_that_could_match;
 use chalk_solve::coinductive_goal::IsCoinductive;
@@ -123,12 +123,12 @@ impl<I: Interner> Forest<I> {
         &self,
         table: TableIndex,
         mut answer_index: AnswerIndex,
-        mut test: impl FnMut(&Substitution<I>) -> bool,
+        mut test: impl FnMut(&Substitution<I>, &Vec<(AliasTy<I>, Ty<I>)>) -> bool,
     ) -> bool {
         // Check any cached answers, starting at `answer_index`.
         while let Some(answer) = self.tables[table].answer(answer_index) {
             info!("answer cached = {:?}", answer);
-            if test(&answer.subst.value.subst) {
+            if test(&answer.subst.value.subst, &answer.subst.value.alias_egraph) {
                 return true;
             }
             answer_index.increment();
@@ -137,7 +137,7 @@ impl<I: Interner> Forest<I> {
         // Check any unsolved strands, which may give further answers.
         self.tables[table]
             .strands()
-            .any(|strand| test(&strand.value.ex_clause.subst))
+            .any(|strand| test(&strand.value.ex_clause.subst, &strand.value.ex_clause.alias_egraph))
     }
 
     pub(crate) fn answer(&self, table: TableIndex, answer: AnswerIndex) -> &Answer<I> {
@@ -1624,6 +1624,7 @@ impl<'forest, I: Interner> SolveState<'forest, I> {
                     .value
                     .constraints
                     .is_empty(self.context.program().interner())
+                && answer.subst.value.alias_egraph.is_empty()
         };
 
         if let Some(answer_index) = self.forest.tables[table].push_answer(answer) {

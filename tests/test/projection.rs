@@ -700,6 +700,63 @@ fn gat_in_non_enumerable_trait() {
 }
 
 #[test]
+fn normalize_under_binder_simple_no_lifetime() {
+    test! {
+        disable_coherence;
+        program {
+            struct Ref<T> { }
+            struct I32 { }
+
+            trait Deref {
+                type Item;
+            }
+
+            impl<T> Deref for Ref<T> {
+                type Item = T;
+            }
+        }
+
+        goal {
+            exists<U> {
+                ProjectionEq(<Ref<I32> as Deref>::Item -> U)
+            }
+        } yields[SolverChoice::slg_default()] {
+            // chalk#234, I think
+            expect![["Ambiguous; no inference guidance"]]
+        }
+    }
+}
+
+#[test]
+fn normalize_under_binder_simple() {
+    test! {
+        program {
+            struct Ref<'a, T> { }
+            struct I32 { }
+
+            trait Deref<'a> {
+                type Item;
+            }
+
+            impl<'a, T> Deref<'a> for Ref<'a, T> {
+                type Item = T;
+            }
+        }
+
+        goal {
+            exists<U> {
+                forall<'a> {
+                    Ref<'a, I32>: Deref<'a, Item = U>
+                }
+            }
+        } yields[SolverChoice::slg_default()] {
+            // chalk#234, I think
+            expect![["Ambiguous; no inference guidance"]]
+        }
+    }
+}
+
+#[test]
 fn normalize_under_binder() {
     test! {
         program {

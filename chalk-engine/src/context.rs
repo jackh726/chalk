@@ -5,9 +5,9 @@
 //! `DomainGoal` type, add arena lifetime parameters, and more. See
 //! [`Context`] trait for a list of types.
 
-use crate::CompleteAnswer;
+use crate::{Answer, CompleteAnswer};
 use chalk_ir::interner::Interner;
-use chalk_ir::Substitution;
+use chalk_ir::{Substitution, AliasTy, Ty};
 use std::fmt::Debug;
 
 pub enum AnswerResult<I: Interner> {
@@ -68,5 +68,5 @@ pub trait AnswerStream<I: Interner> {
 
     /// Invokes `test` with each possible future answer, returning true immediately
     /// if we find any answer for which `test` returns true.
-    fn any_future_answer(&self, test: impl Fn(&Substitution<I>) -> bool) -> bool;
+    fn any_future_answer(&self, test: impl Fn(&Substitution<I>, &Vec<(AliasTy<I>, Ty<I>)>) -> bool) -> bool;
 }

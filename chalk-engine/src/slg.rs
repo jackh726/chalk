@@ -111,11 +111,11 @@ pub trait ResolventOps<I: Interner> {
 }
 
 trait SubstitutionExt<I: Interner> {
-    fn may_invalidate(&self, interner: I, subst: &Canonical<Substitution<I>>) -> bool;
+    fn may_invalidate(&self, interner: I, subst: &Canonical<Substitution<I>>, alias_egraph: &Vec<(AliasTy<I>, Ty<I>)>) -> bool;
 }
 
 impl<I: Interner> SubstitutionExt<I> for Substitution<I> {
-    fn may_invalidate(&self, interner: I, subst: &Canonical<Substitution<I>>) -> bool {
+    fn may_invalidate(&self, interner: I, subst: &Canonical<Substitution<I>>, alias_egraph: &Vec<(AliasTy<I>, Ty<I>)>) -> bool {
         self.iter(interner)
             .zip(subst.value.iter(interner))
             .any(|(new, current)| MayInvalidate { interner }.aggregate_generic_args(new, current))

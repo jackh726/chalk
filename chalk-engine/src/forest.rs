@@ -3,10 +3,10 @@ use crate::logic::RootSearchFail;
 use crate::slg::SlgContextOps;
 use crate::table::AnswerIndex;
 use crate::tables::Tables;
-use crate::{TableIndex, TimeStamp};
+use crate::{Answer, TableIndex, TimeStamp};
 
 use chalk_ir::interner::Interner;
-use chalk_ir::{Goal, InEnvironment, Substitution, UCanonical};
+use chalk_ir::{Goal, InEnvironment, Substitution, UCanonical, AliasTy, Ty};
 use tracing::debug;
 
 pub(crate) struct Forest<I: Interner> {
@@ -110,7 +110,7 @@ impl<'me, I: Interner> AnswerStream<I> for ForestSolver<'me, I> {
         answer
     }
 
-    fn any_future_answer(&self, test: impl Fn(&Substitution<I>) -> bool) -> bool {
+    fn any_future_answer(&self, test: impl Fn(&Substitution<I>, &Vec<(AliasTy<I>, Ty<I>)>) -> bool) -> bool {
         self.forest.any_future_answer(self.table, self.answer, test)
     }
 }

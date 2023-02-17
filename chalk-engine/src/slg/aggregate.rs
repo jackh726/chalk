@@ -49,7 +49,6 @@ impl<I: Interner> AggregateOps<I> for SlgContextOps<'_, I> {
             }
             AnswerResult::Answer(answer) => answer,
         };
-        //dbg!(&subst, ambiguous);
 
         // Otherwise, we either have >1 answer, or else we have
         // ambiguity.  Either way, we are only going to be giving back
@@ -75,14 +74,15 @@ impl<I: Interner> AggregateOps<I> for SlgContextOps<'_, I> {
         let mut num_answers = 1;
         let mut num_solutions = 1;
         let solution = loop {
+            dbg!(&subst);
             if num_solutions > 1
-                && is_trivial(interner, &subst.clone().map(interner, |cs| cs.subst))
+                && is_trivial(interner, &subst)
             {
                 break Some(Solution::Ambig(Guidance::Unknown));
             }
 
             let next_answer = answers.peek_answer(&should_continue);
-            //dbg!(&next_answer);
+            dbg!(&next_answer);
             match next_answer {
                 AnswerResult::QuantumExceeded => {
                     break if subst.value.subst.is_identity_subst(interner) {
@@ -120,12 +120,15 @@ impl<I: Interner> AggregateOps<I> for SlgContextOps<'_, I> {
                         &next_answer.subst,
                     );
 
+                    dbg!(&subst, &new_solution);
+
                     if new_solution {
                         num_solutions += 1;
-                        if !answers.any_future_answer(|ref mut new_subst| {
+                        if !answers.any_future_answer(|new_subst, alias_egraph | {
                             new_subst.may_invalidate(
                                 interner,
                                 &subst.clone().map(interner, |cs| cs.subst),
+                                alias_egraph,
                             )
                         }) {
                             break Some(Solution::Ambig(Guidance::Definite(
@@ -211,17 +214,15 @@ fn merge_into_guidance<I: Interner>(
     guidance: Canonical<ConstrainedSubst<I>>,
     answer: &Canonical<ConstrainedSubst<I>>,
 ) -> (Canonical<ConstrainedSubst<I>>, bool) {
-    let mut infer = InferenceTable::new();
-    let Canonical {
-        value: ConstrainedSubst {
-            subst: subst1,
-            constraints: _,
-            alias_egraph,
-        },
-        binders: _,
+    let (mut infer, _, guidance_) = InferenceTable::from_canonical(interner, 1, guidance.clone());
+    let (_, _, answer) = InferenceTable::from_canonical(interner, 1, answer.clone());
+    let ConstrainedSubst {
+        subst: subst1,
+        constraints: _,
+        alias_egraph,
     } = answer;
 
-    let mut egraph = Egraph::from_constraints(interner, &mut infer, guidance.value.alias_egraph).unwrap();
+    let mut egraph = Egraph::from_constraints(interner, &mut infer, guidance_.alias_egraph).unwrap();
 
     // Collect the types that the two substitutions have in
     // common.
@@ -271,13 +272,17 @@ fn merge_into_guidance<I: Interner>(
         constraints: Constraints::empty(interner),
         alias_egraph,
     };
+    dbg!(&aggr_subst);
     (infer.canonicalize(interner, aggr_subst).quantified, true)
 }
 
-fn is_trivial<I: Interner>(interner: I, subst: &Canonical<Substitution<I>>) -> bool {
-    // A subst is trivial if..
-    subst
+fn is_trivial<I: Interner>(interner: I, subst: &Canonical<ConstrainedSubst<I>>) -> bool {
+    // The subst is trivial if...
+
+    // ...for the substition...
+    let trivial_substition = subst
         .value
+        .subst
         .iter(interner)
         .enumerate()
         .all(|(index, parameter)| {
@@ -303,7 +308,14 @@ fn is_trivial<I: Interner>(interner: I, subst: &Canonical<Substitution<I>>) -> b
                 // product substs with lifetimes.)
                 GenericArgData::Lifetime(_) => false,
             }
-        })
+        });
+
+    if !trivial_substition {
+        return false;
+    }
+
+    // ...and the alias egraph is empty...
+    subst.value.alias_egraph.is_empty()
 }
 
 /// [Anti-unification] is the act of taking two things that do not
@@ -332,7 +344,13 @@ impl<I: Interner> AntiUnifier<'_, I> {
             // overgeneralize.  So for example if we have two
             // solutions that are both `(X, X)`, we just produce `(Y,
             // Z)` in all cases.
-            (TyKind::InferenceVar(_, _), _) => self.new_ty_variable(),
+            (TyKind::InferenceVar(var, _), _) => {
+                if self.egraph.is_alias_var(*var) {
+                    panic!()
+                } else {
+                    self.new_ty_variable()
+                }
+            }
             (_, TyKind::InferenceVar(_, _)) => self.new_ty_variable(),
 
             // Ugh. Aggregating two types like `for<'a> fn(&'a u32,
@@ -475,6 +493,9 @@ impl<I: Interner> AntiUnifier<'_, I> {
             }
             (TyKind::Error, TyKind::Error) => TyKind::Error.intern(interner),
 
+            (TyKind::BoundVar(..), _) => {
+                panic!()
+            }
             (_, _) => self.new_ty_variable(),
         }
     }

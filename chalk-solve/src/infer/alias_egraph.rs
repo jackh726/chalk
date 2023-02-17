@@ -83,6 +83,10 @@ impl<I: Interner> Egraph<I> {
         Ok(this)
     }
 
+    pub fn is_alias_var(&self, var: InferenceVar) -> bool {
+        self.inference_alias_map.contains_key(&EnaVariable::from(var))
+    }
+
     pub fn register_alias_var_constraint(&mut self, interner: I, table: &mut InferenceTable<I>, var: EnaVariable<I>, alias_ty: AliasTy<I>) -> Fallible<()> {
         // Make sure we're only handling the root var; this simplifies things
         let var = table.unify.find(var);
