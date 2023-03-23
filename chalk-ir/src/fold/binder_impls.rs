@@ -63,11 +63,12 @@ where
         let Canonical {
             binders: self_binders,
             value: self_value,
+            universes,
         } = self;
         let value = self_value.try_fold_with(folder, outer_binder.shifted_in())?;
         let binders = CanonicalVarKinds {
             interned: self_binders.interned().clone(),
         };
-        Ok(Canonical { binders, value })
+        Ok(Canonical { binders, value, universes })
     }
 }

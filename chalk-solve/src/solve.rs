@@ -117,6 +117,7 @@ impl<I: Interner> Solution<I> {
             Solution::Unique(constrained) => Guidance::Definite(Canonical {
                 value: constrained.value.subst,
                 binders: constrained.binders,
+                universes: constrained.universes,
             }),
             Solution::Ambig(guidance) => guidance,
         }
@@ -135,6 +136,7 @@ impl<I: Interner> Solution<I> {
                 Some(Canonical {
                     value,
                     binders: canonical.binders.clone(),
+                    universes: canonical.universes,
                 })
             }
             Solution::Ambig(_) => None,
@@ -154,6 +156,7 @@ impl<I: Interner> Solution<I> {
                 Some(Canonical {
                     value,
                     binders: canonical.binders.clone(),
+                    universes: canonical.universes,
                 })
             }
             _ => None,
@@ -188,7 +191,7 @@ impl<'a, I: Interner> fmt::Display for SolutionDisplay<'a, I> {
         match solution {
             // If a `Unique` solution has no associated data, omit the trailing semicolon.
             // This makes blessed test output nicer to read.
-            Solution::Unique(Canonical { binders, value: ConstrainedSubst { subst, constraints } } )
+            Solution::Unique(Canonical { binders, value: ConstrainedSubst { subst, constraints }, universes: _ } )
                 if interner.constraints_data(constraints.interned()).is_empty()
                     && interner.substitution_data(subst.interned()).is_empty()
                     && interner.canonical_var_kinds_data(binders.interned()).is_empty()
@@ -274,7 +277,7 @@ where
     fn solve(
         &mut self,
         program: &dyn RustIrDatabase<I>,
-        goal: &UCanonical<InEnvironment<Goal<I>>>,
+        goal: &Canonical<InEnvironment<Goal<I>>>,
     ) -> Option<Solution<I>>;
 
     /// Attempts to solve the given goal, which must be in canonical
@@ -302,7 +305,7 @@ where
     fn solve_limited(
         &mut self,
         program: &dyn RustIrDatabase<I>,
-        goal: &UCanonical<InEnvironment<Goal<I>>>,
+        goal: &Canonical<InEnvironment<Goal<I>>>,
         should_continue: &dyn std::ops::Fn() -> bool,
     ) -> Option<Solution<I>>;
 
@@ -331,7 +334,7 @@ where
     fn solve_multiple(
         &mut self,
         program: &dyn RustIrDatabase<I>,
-        goal: &UCanonical<InEnvironment<Goal<I>>>,
+        goal: &Canonical<InEnvironment<Goal<I>>>,
         f: &mut dyn FnMut(SubstitutionResult<Canonical<ConstrainedSubst<I>>>, bool) -> bool,
     ) -> bool;
 
@@ -340,7 +343,7 @@ where
     fn has_unique_solution(
         &mut self,
         program: &dyn RustIrDatabase<I>,
-        goal: &UCanonical<InEnvironment<Goal<I>>>,
+        goal: &Canonical<InEnvironment<Goal<I>>>,
     ) -> bool {
         match self.solve(program, goal) {
             Some(sol) => sol.is_unique(),

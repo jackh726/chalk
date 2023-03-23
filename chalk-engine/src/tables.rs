@@ -4,13 +4,13 @@ use rustc_hash::FxHashMap;
 use std::ops::{Index, IndexMut};
 
 use chalk_ir::interner::Interner;
-use chalk_ir::{Goal, InEnvironment, UCanonical};
+use chalk_ir::{Goal, InEnvironment, Canonical};
 
 /// See `Forest`.
 #[derive(Debug)]
 pub(crate) struct Tables<I: Interner> {
     /// Maps from a canonical goal to the index of its table.
-    table_indices: FxHashMap<UCanonical<InEnvironment<Goal<I>>>, TableIndex>,
+    table_indices: FxHashMap<Canonical<InEnvironment<Goal<I>>>, TableIndex>,
 
     /// Table: as described above, stores the key information for each
     /// tree in the forest.
@@ -42,7 +42,7 @@ impl<I: Interner> Tables<I> {
 
     pub(super) fn index_of(
         &self,
-        literal: &UCanonical<InEnvironment<Goal<I>>>,
+        literal: &Canonical<InEnvironment<Goal<I>>>,
     ) -> Option<TableIndex> {
         self.table_indices.get(literal).cloned()
     }

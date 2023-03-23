@@ -298,6 +298,7 @@ where
         Canonical {
             value: self.value.cast(interner),
             binders: self.binders.cast(interner),
+            universes: self.universes,
         }
     }
 }

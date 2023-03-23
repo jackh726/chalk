@@ -9,7 +9,7 @@ use chalk_ir::{
     Binders, BoundVar, Canonical, ConstrainedSubst, Constraint, Constraints, DomainGoal,
     Environment, EqGoal, Fallible, GenericArg, GenericArgData, Goal, GoalData, InEnvironment,
     NoSolution, ProgramClauseImplication, QuantifierKind, Substitution, SubtypeGoal, TyKind,
-    TyVariableKind, UCanonical, UnificationDatabase, UniverseMap, Variance,
+    TyVariableKind, UnificationDatabase, UniverseMap, Variance,
 };
 use chalk_solve::debug_span;
 use chalk_solve::infer::{InferenceTable, ParameterEnaVariableExt};
@@ -63,9 +63,9 @@ fn canonicalize<I: Interner, T>(
     infer: &mut InferenceTable<I>,
     interner: I,
     value: T,
-) -> (Canonical<T>, Vec<GenericArg<I>>)
+) -> (Canonical<T>, Vec<GenericArg<I>>, UniverseMap)
 where
-    T: TypeFoldable<I>,
+    T: TypeFoldable<I> + TypeVisitable<I> + Clone,
     T: HasInterner<Interner = I>,
 {
     let res = infer.canonicalize(interner, value);
@@ -74,20 +74,7 @@ where
         .into_iter()
         .map(|free_var| free_var.to_generic_arg(interner))
         .collect();
-    (res.quantified, free_vars)
-}
-
-fn u_canonicalize<I: Interner, T>(
-    _infer: &mut InferenceTable<I>,
-    interner: I,
-    value0: &Canonical<T>,
-) -> (UCanonical<T>, UniverseMap)
-where
-    T: Clone + HasInterner<Interner = I> + TypeFoldable<I> + TypeVisitable<I>,
-    T: HasInterner<Interner = I>,
-{
-    let res = InferenceTable::u_canonicalize(interner, value0);
-    (res.quantified, res.universes)
+    (res.quantified, free_vars, res.universes)
 }
 
 fn unify<I: Interner, T>(
@@ -350,8 +337,8 @@ impl<'s, I: Interner, Solver: SolveDatabase<I>> Fulfill<'s, I, Solver> {
         should_continue: impl std::ops::Fn() -> bool + Clone,
     ) -> Fallible<PositiveSolution<I>> {
         let interner = self.solver.interner();
-        let (quantified, free_vars) = canonicalize(&mut self.infer, interner, wc);
-        let (quantified, universes) = u_canonicalize(&mut self.infer, interner, &quantified);
+        let (quantified, free_vars, universes) = canonicalize(&mut self.infer, interner, wc);
+
         let result = self
             .solver
             .solve_goal(quantified, minimums, should_continue);
@@ -380,12 +367,10 @@ impl<'s, I: Interner, Solver: SolveDatabase<I>> Fulfill<'s, I, Solver> {
         };
 
         // Negate the result
-        let (quantified, _) =
-            u_canonicalize(&mut self.infer, self.solver.interner(), &canonicalized);
         let mut minimums = Minimums::new(); // FIXME -- minimums here seems wrong
         if let Ok(solution) = self
             .solver
-            .solve_goal(quantified, &mut minimums, should_continue)
+            .solve_goal(canonicalized, &mut minimums, should_continue)
         {
             if solution.is_unique() {
                 Err(NoSolution)

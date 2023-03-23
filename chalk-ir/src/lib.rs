@@ -2383,6 +2383,9 @@ pub struct Canonical<T: HasInterner> {
 
     /// The kind/universe of the variable.
     pub binders: CanonicalVarKinds<T::Interner>,
+    
+    /// The number of universes that have been collapsed.
+    pub universes: usize,
 }
 
 impl<T: HasInterner> HasInterner for Canonical<T> {
@@ -2404,7 +2407,7 @@ pub struct UCanonical<T: HasInterner> {
     pub universes: usize,
 }
 
-impl<T: HasInterner> UCanonical<T> {
+impl<T: HasInterner> Canonical<T> {
     /// Checks whether the universe canonical value is a trivial
     /// substitution (e.g. an identity substitution).
     pub fn is_trivial_substitution(
@@ -2414,7 +2417,7 @@ impl<T: HasInterner> UCanonical<T> {
     ) -> bool {
         let subst = &canonical_subst.value.subst;
         assert_eq!(
-            self.canonical.binders.len(interner),
+            self.binders.len(interner),
             subst.as_slice(interner).len()
         );
         subst.is_identity_subst(interner)
@@ -2422,7 +2425,7 @@ impl<T: HasInterner> UCanonical<T> {
 
     /// Creates an identity substitution.
     pub fn trivial_substitution(&self, interner: T::Interner) -> Substitution<T::Interner> {
-        let binders = &self.canonical.binders;
+        let binders = &self.binders;
         Substitution::from_iter(
             interner,
             binders

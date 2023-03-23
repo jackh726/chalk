@@ -894,7 +894,7 @@ pub struct CanonicalDisplay<'a, T: HasInterner> {
 
 impl<'a, T: HasInterner + Display> Display for CanonicalDisplay<'a, T> {
     fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), Error> {
-        let Canonical { binders, value } = self.canonical;
+        let Canonical { binders, value , universes: _} = self.canonical;
         let interner = self.interner;
         let binders = binders.as_slice(interner);
         if binders.is_empty() {

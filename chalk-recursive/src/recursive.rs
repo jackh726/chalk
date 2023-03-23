@@ -2,7 +2,7 @@ use crate::fixed_point::{Cache, Minimums, RecursiveContext, SolverStuff};
 use crate::solve::{SolveDatabase, SolveIteration};
 use crate::UCanonicalGoal;
 use chalk_ir::{interner::Interner, NoSolution};
-use chalk_ir::{Canonical, ConstrainedSubst, Goal, InEnvironment, UCanonical};
+use chalk_ir::{Canonical, ConstrainedSubst, Goal, InEnvironment};
 use chalk_ir::{Constraints, Fallible};
 use chalk_solve::{coinductive_goal::IsCoinductive, RustIrDatabase, Solution};
 use std::fmt;
@@ -64,7 +64,8 @@ impl<I: Interner> SolverStuff<UCanonicalGoal<I>, Fallible<Solution<I>>> for &dyn
                     subst: goal.trivial_substitution(self.interner()),
                     constraints: Constraints::empty(self.interner()),
                 },
-                binders: goal.canonical.binders.clone(),
+                binders: goal.binders.clone(),
+                universes: goal.universes,
             }))
         } else {
             Err(NoSolution)
@@ -132,7 +133,7 @@ impl<I: Interner> chalk_solve::Solver<I> for RecursiveSolver<I> {
     fn solve(
         &mut self,
         program: &dyn RustIrDatabase<I>,
-        goal: &UCanonical<InEnvironment<Goal<I>>>,
+        goal: &Canonical<InEnvironment<Goal<I>>>,
     ) -> Option<chalk_solve::Solution<I>> {
         self.ctx.solve_root_goal(goal, program, || true).ok()
     }
@@ -140,7 +141,7 @@ impl<I: Interner> chalk_solve::Solver<I> for RecursiveSolver<I> {
     fn solve_limited(
         &mut self,
         program: &dyn RustIrDatabase<I>,
-        goal: &UCanonical<InEnvironment<Goal<I>>>,
+        goal: &Canonical<InEnvironment<Goal<I>>>,
         should_continue: &dyn std::ops::Fn() -> bool,
     ) -> Option<chalk_solve::Solution<I>> {
         self.ctx
@@ -151,7 +152,7 @@ impl<I: Interner> chalk_solve::Solver<I> for RecursiveSolver<I> {
     fn solve_multiple(
         &mut self,
         _program: &dyn RustIrDatabase<I>,
-        _goal: &UCanonical<InEnvironment<Goal<I>>>,
+        _goal: &Canonical<InEnvironment<Goal<I>>>,
         _f: &mut dyn FnMut(
             chalk_solve::SubstitutionResult<Canonical<ConstrainedSubst<I>>>,
             bool,

@@ -359,7 +359,7 @@ pub fn push_auto_trait_impls_generator_witness<I: Interner>(
 #[instrument(level = "debug", skip(db))]
 pub fn program_clauses_for_goal<'db, I: Interner>(
     db: &'db dyn RustIrDatabase<I>,
-    goal: &UCanonical<InEnvironment<DomainGoal<I>>>,
+    goal: &Canonical<InEnvironment<DomainGoal<I>>>,
 ) -> Result<Vec<ProgramClause<I>>, Floundered> {
     let interner = db.interner();
 
@@ -370,7 +370,7 @@ pub fn program_clauses_for_goal<'db, I: Interner>(
     let clauses: Vec<ProgramClause<I>> = custom_clauses
         .chain(clauses_that_could_match)
         .chain(
-            db.program_clauses_for_env(&goal.canonical.value.environment)
+            db.program_clauses_for_env(&goal.value.environment)
                 .iter(interner)
                 .cloned(),
         )
@@ -378,7 +378,7 @@ pub fn program_clauses_for_goal<'db, I: Interner>(
             c.could_match(
                 interner,
                 db.unification_database(),
-                &goal.canonical.value.goal,
+                &goal.value.goal,
             )
         })
         .collect();
@@ -395,19 +395,16 @@ pub fn program_clauses_for_goal<'db, I: Interner>(
 #[instrument(level = "debug", skip(db))]
 pub fn program_clauses_that_could_match<I: Interner>(
     db: &dyn RustIrDatabase<I>,
-    goal: &UCanonical<InEnvironment<DomainGoal<I>>>,
+    goal: &Canonical<InEnvironment<DomainGoal<I>>>,
 ) -> Result<Vec<ProgramClause<I>>, Floundered> {
     let interner = db.interner();
     let mut clauses: Vec<ProgramClause<I>> = vec![];
     let builder = &mut ClauseBuilder::new(db, &mut clauses);
 
-    let UCanonical {
-        canonical:
-            Canonical {
-                value: InEnvironment { environment, goal },
-                binders,
-            },
-        universes: _,
+    let Canonical {
+        value: InEnvironment { environment, goal },
+        binders,
+        universes: _
     } = goal;
 
     match goal {

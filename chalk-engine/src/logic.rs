@@ -13,11 +13,10 @@ use chalk_ir::could_match::CouldMatch;
 use chalk_ir::interner::Interner;
 use chalk_ir::{
     AnswerSubst, Canonical, ConstrainedSubst, Constraints, FallibleOrFloundered, Floundered, Goal,
-    GoalData, InEnvironment, NoSolution, ProgramClause, Substitution, UCanonical, UniverseMap,
+    GoalData, InEnvironment, NoSolution, ProgramClause, Substitution, UniverseMap,
 };
 use chalk_solve::clauses::program_clauses_that_could_match;
 use chalk_solve::coinductive_goal::IsCoinductive;
-use chalk_solve::infer::ucanonicalize::UCanonicalized;
 use chalk_solve::infer::InferenceTable;
 use chalk_solve::solve::truncate;
 use tracing::{debug, debug_span, info, instrument};
@@ -109,6 +108,7 @@ impl<I: Interner> Forest<I> {
                             subst: answer.subst.value.subst.clone(),
                             constraints: answer.subst.value.constraints.clone(),
                         },
+                        universes: answer.subst.universes,
                     },
                     ambiguous: answer.ambiguous,
                 })
@@ -200,7 +200,7 @@ impl<I: Interner> Forest<I> {
     pub(crate) fn get_or_create_table_for_ucanonical_goal(
         &mut self,
         context: &SlgContextOps<I>,
-        goal: UCanonical<InEnvironment<Goal<I>>>,
+        goal: Canonical<InEnvironment<Goal<I>>>,
     ) -> TableIndex {
         if let Some(table) = self.tables.index_of(&goal) {
             debug!(?table, "found existing table");
@@ -230,27 +230,25 @@ impl<I: Interner> Forest<I> {
     fn build_table(
         context: &SlgContextOps<I>,
         table_idx: TableIndex,
-        goal: UCanonical<InEnvironment<Goal<I>>>,
+        goal: Canonical<InEnvironment<Goal<I>>>,
     ) -> Table<I> {
         let coinductive = goal.is_coinductive(context.program());
         let mut table = Table::new(goal.clone(), coinductive);
 
-        let goal_data = goal.canonical.value.goal.data(context.program().interner());
+        let goal_data = goal.value.goal.data(context.program().interner());
         match goal_data {
             GoalData::DomainGoal(domain_goal) => {
-                let canon_domain_goal = UCanonical {
-                    canonical: Canonical {
-                        binders: goal.canonical.binders,
-                        value: InEnvironment::new(
-                            &goal.canonical.value.environment,
-                            domain_goal.clone(),
-                        ),
-                    },
+                let canon_domain_goal = Canonical {
+                    binders: goal.binders,
+                    value: InEnvironment::new(
+                        &goal.value.environment,
+                        domain_goal.clone(),
+                    ),
                     universes: goal.universes,
                 };
 
                 let db = context.program();
-                let canon_goal = canon_domain_goal.canonical.value.goal.clone();
+                let canon_goal = canon_domain_goal.value.goal.clone();
                 let could_match = |c: &ProgramClause<I>| {
                     c.could_match(db.interner(), db.unification_database(), &canon_goal)
                 };
@@ -264,7 +262,7 @@ impl<I: Interner> Forest<I> {
                             chalk_solve::infer::InferenceTable::from_canonical(
                                 context.program().interner(),
                                 canon_domain_goal.universes,
-                                canon_domain_goal.canonical,
+                                canon_domain_goal,
                             );
 
                         clauses.extend(
@@ -315,7 +313,7 @@ impl<I: Interner> Forest<I> {
                     chalk_solve::infer::InferenceTable::from_canonical(
                         context.program().interner(),
                         goal.universes,
-                        goal.canonical,
+                        goal,
                     );
                 // The goal for this table is not a domain goal, so we instead
                 // simplify it into a series of *literals*, all of which must be
@@ -362,7 +360,7 @@ impl<I: Interner> Forest<I> {
         context: &SlgContextOps<I>,
         infer: &mut InferenceTable<I>,
         subgoal: InEnvironment<Goal<I>>,
-    ) -> Option<(UCanonical<InEnvironment<Goal<I>>>, UniverseMap)> {
+    ) -> Option<(Canonical<InEnvironment<Goal<I>>>, UniverseMap)> {
         if truncate::needs_truncation(
             context.program().interner(),
             infer,
@@ -372,13 +370,8 @@ impl<I: Interner> Forest<I> {
             None
         } else {
             let canonicalized_goal = infer
-                .canonicalize(context.program().interner(), subgoal)
-                .quantified;
-            let UCanonicalized {
-                quantified,
-                universes,
-            } = InferenceTable::u_canonicalize(context.program().interner(), &canonicalized_goal);
-            Some((quantified, universes))
+                .canonicalize(context.program().interner(), subgoal);
+            Some((canonicalized_goal.quantified, canonicalized_goal.universes))
         }
     }
 
@@ -393,7 +386,7 @@ impl<I: Interner> Forest<I> {
         context: &SlgContextOps<I>,
         infer: &mut InferenceTable<I>,
         subgoal: InEnvironment<Goal<I>>,
-    ) -> Option<(UCanonical<InEnvironment<Goal<I>>>, UniverseMap)> {
+    ) -> Option<(Canonical<InEnvironment<Goal<I>>>, UniverseMap)> {
         // First, we have to check that the selected negative literal
         // is ground, and invert any universally quantified variables.
         //
@@ -442,13 +435,8 @@ impl<I: Interner> Forest<I> {
             None
         } else {
             let canonicalized_goal = infer
-                .canonicalize(context.program().interner(), inverted_subgoal)
-                .quantified;
-            let UCanonicalized {
-                quantified,
-                universes,
-            } = InferenceTable::u_canonicalize(context.program().interner(), &canonicalized_goal);
-            Some((quantified, universes))
+                .canonicalize(context.program().interner(), inverted_subgoal);
+            Some((canonicalized_goal.quantified, canonicalized_goal.universes))
         }
     }
 }
@@ -656,7 +644,7 @@ impl<'forest, I: Interner> SolveState<'forest, I> {
                 use chalk_solve::infer::ucanonicalize::UniverseMapExt;
                 let table_goal = universe_map.map_from_canonical(
                     self.context.program().interner(),
-                    &self.forest.tables[subgoal_table].table_goal.canonical,
+                    &self.forest.tables[subgoal_table].table_goal,
                 );
                 let answer_subst = universe_map.map_from_canonical(
                     self.context.program().interner(),
@@ -1415,6 +1403,7 @@ impl<'forest, I: Interner> SolveState<'forest, I> {
         let Canonical {
             binders,
             value: strand,
+            universes,
         } = canonical_strand;
         let ExClause {
             subst,
@@ -1470,15 +1459,12 @@ impl<'forest, I: Interner> SolveState<'forest, I> {
         let filtered_delayed_subgoals = delayed_subgoals
             .into_iter()
             .filter(|delayed_subgoal| {
-                let canonicalized = InferenceTable::u_canonicalize(
-                    self.context.program().interner(),
-                    &chalk_ir::Canonical {
-                        binders: binders.clone(),
-                        value: delayed_subgoal.clone(),
-                    },
-                )
-                .quantified;
-                *table_goal != canonicalized
+                let canonicalized = &chalk_ir::Canonical {
+                    binders: binders.clone(),
+                    value: delayed_subgoal.clone(),
+                    universes,
+                };
+                table_goal != canonicalized
             })
             .collect();
 
@@ -1489,6 +1475,7 @@ impl<'forest, I: Interner> SolveState<'forest, I> {
                 constraints: Constraints::from_iter(self.context.program().interner(), constraints),
                 delayed_subgoals: filtered_delayed_subgoals,
             },
+            universes,
         };
         debug!(?table, ?subst, ?floundered, "found answer");
 

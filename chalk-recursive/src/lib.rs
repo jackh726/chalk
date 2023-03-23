@@ -1,6 +1,6 @@
-use chalk_ir::{Goal, InEnvironment, UCanonical};
+use chalk_ir::{Goal, InEnvironment, Canonical};
 
-pub type UCanonicalGoal<I> = UCanonical<InEnvironment<Goal<I>>>;
+pub type UCanonicalGoal<I> = Canonical<InEnvironment<Goal<I>>>;
 
 mod combine;
 mod fixed_point;

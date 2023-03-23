@@ -51,12 +51,12 @@ impl<I: Interner> SlgContextOps<'_, I> {
 
     fn identity_constrained_subst(
         &self,
-        goal: &UCanonical<InEnvironment<Goal<I>>>,
+        goal: &Canonical<InEnvironment<Goal<I>>>,
     ) -> Canonical<ConstrainedSubst<I>> {
         let (mut infer, subst, _) = InferenceTable::from_canonical(
             self.program.interner(),
             goal.universes,
-            goal.canonical.clone(),
+            goal.clone(),
         );
         infer
             .canonicalize(

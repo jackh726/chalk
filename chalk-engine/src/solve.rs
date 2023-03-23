@@ -3,7 +3,7 @@ use crate::forest::Forest;
 use crate::slg::aggregate::AggregateOps;
 use crate::slg::SlgContextOps;
 use chalk_ir::interner::Interner;
-use chalk_ir::{Canonical, ConstrainedSubst, Goal, InEnvironment, UCanonical};
+use chalk_ir::{Canonical, ConstrainedSubst, Goal, InEnvironment};
 use chalk_solve::{RustIrDatabase, Solution, Solver, SubstitutionResult};
 
 use std::fmt;
@@ -34,7 +34,7 @@ impl<I: Interner> Solver<I> for SLGSolver<I> {
     fn solve(
         &mut self,
         program: &dyn RustIrDatabase<I>,
-        goal: &UCanonical<InEnvironment<Goal<I>>>,
+        goal: &Canonical<InEnvironment<Goal<I>>>,
     ) -> Option<Solution<I>> {
         let ops = SlgContextOps::new(program, self.max_size, self.expected_answers);
         ops.make_solution(goal, self.forest.iter_answers(&ops, goal), || true)
@@ -43,7 +43,7 @@ impl<I: Interner> Solver<I> for SLGSolver<I> {
     fn solve_limited(
         &mut self,
         program: &dyn RustIrDatabase<I>,
-        goal: &UCanonical<InEnvironment<Goal<I>>>,
+        goal: &Canonical<InEnvironment<Goal<I>>>,
         should_continue: &dyn std::ops::Fn() -> bool,
     ) -> Option<Solution<I>> {
         let ops = SlgContextOps::new(program, self.max_size, self.expected_answers);
@@ -53,7 +53,7 @@ impl<I: Interner> Solver<I> for SLGSolver<I> {
     fn solve_multiple(
         &mut self,
         program: &dyn RustIrDatabase<I>,
-        goal: &UCanonical<InEnvironment<Goal<I>>>,
+        goal: &Canonical<InEnvironment<Goal<I>>>,
         f: &mut dyn FnMut(SubstitutionResult<Canonical<ConstrainedSubst<I>>>, bool) -> bool,
     ) -> bool {
         let ops = SlgContextOps::new(program, self.max_size, self.expected_answers);

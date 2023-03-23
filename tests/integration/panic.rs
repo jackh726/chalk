@@ -267,33 +267,31 @@ impl RustIrDatabase<ChalkIr> for MockDatabase {
     }
 }
 
-fn prepare_goal() -> UCanonical<InEnvironment<Goal<ChalkIr>>> {
+fn prepare_goal() -> Canonical<InEnvironment<Goal<ChalkIr>>> {
     use chalk_integration::interner;
     use chalk_ir::*;
 
     // Goal:
     //
     // Foo: Bar
-    UCanonical {
-        canonical: Canonical {
-            binders: CanonicalVarKinds::empty(ChalkIr),
-            value: InEnvironment {
-                environment: Environment::new(ChalkIr),
-                goal: GoalData::DomainGoal(DomainGoal::Holds(WhereClause::Implemented(TraitRef {
-                    trait_id: TraitId(interner::RawId { index: 0 }),
-                    substitution: Substitution::from1(
+    Canonical {
+        binders: CanonicalVarKinds::empty(ChalkIr),
+        value: InEnvironment {
+            environment: Environment::new(ChalkIr),
+            goal: GoalData::DomainGoal(DomainGoal::Holds(WhereClause::Implemented(TraitRef {
+                trait_id: TraitId(interner::RawId { index: 0 }),
+                substitution: Substitution::from1(
+                    ChalkIr,
+                    Ty::new(
                         ChalkIr,
-                        Ty::new(
-                            ChalkIr,
-                            TyKind::Adt(
-                                AdtId(interner::RawId { index: 1 }),
-                                Substitution::empty(ChalkIr),
-                            ),
+                        TyKind::Adt(
+                            AdtId(interner::RawId { index: 1 }),
+                            Substitution::empty(ChalkIr),
                         ),
                     ),
-                })))
-                .intern(ChalkIr),
-            },
+                ),
+            })))
+            .intern(ChalkIr),
         },
         universes: 1,
     }

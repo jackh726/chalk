@@ -193,6 +193,10 @@ impl<I: Interner> InferenceTable<I> {
             InferenceValue::Bound(_) => panic!("var_universe invoked on bound variable"),
         }
     }
+
+    pub fn var_value(&mut self, leaf: InferenceVar) -> InferenceValue<I> {
+        self.unify.probe_value(EnaVariable::from(leaf))
+    }
 }
 
 pub trait ParameterEnaVariableExt<I: Interner> {

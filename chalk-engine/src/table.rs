@@ -7,14 +7,14 @@ use std::collections::VecDeque;
 use std::mem;
 
 use chalk_ir::interner::Interner;
-use chalk_ir::{AnswerSubst, Canonical, Goal, InEnvironment, UCanonical};
+use chalk_ir::{AnswerSubst, Canonical, Goal, InEnvironment};
 use tracing::{debug, info, instrument};
 
 #[derive(Debug)]
 pub(crate) struct Table<I: Interner> {
     /// The goal this table is trying to solve (also the key to look
     /// it up).
-    pub(crate) table_goal: UCanonical<InEnvironment<Goal<I>>>,
+    pub(crate) table_goal: Canonical<InEnvironment<Goal<I>>>,
 
     /// A goal is coinductive if it can assume itself to be true, more
     /// or less. This is true for auto traits.
@@ -55,7 +55,7 @@ index_struct! {
 
 impl<I: Interner> Table<I> {
     pub(crate) fn new(
-        table_goal: UCanonical<InEnvironment<Goal<I>>>,
+        table_goal: Canonical<InEnvironment<Goal<I>>>,
         coinductive_goal: bool,
     ) -> Table<I> {
         Table {

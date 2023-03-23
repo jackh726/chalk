@@ -9,7 +9,7 @@ use crate::{
 use chalk_ir::{
     AdtId, AssocTypeId, Binders, Canonical, CanonicalVarKinds, ClosureId, ConstrainedSubst,
     Environment, FnDefId, GeneratorId, GenericArg, Goal, ImplId, InEnvironment, OpaqueTyId,
-    ProgramClause, ProgramClauses, Substitution, TraitId, Ty, TyKind, UCanonical,
+    ProgramClause, ProgramClauses, Substitution, TraitId, Ty, TyKind,
     UnificationDatabase, Variances,
 };
 use chalk_solve::rust_ir::{
@@ -50,7 +50,7 @@ impl ChalkDatabase {
 
     pub fn solve(
         &self,
-        goal: &UCanonical<InEnvironment<Goal<ChalkIr>>>,
+        goal: &Canonical<InEnvironment<Goal<ChalkIr>>>,
     ) -> Option<Solution<ChalkIr>> {
         let solver = self.solver();
         let solution = solver.lock().unwrap().solve(self, goal);
@@ -63,7 +63,7 @@ impl ChalkDatabase {
     /// iterate over multiple solutions until the function return `false`.
     pub fn solve_multiple(
         &self,
-        goal: &UCanonical<InEnvironment<Goal<ChalkIr>>>,
+        goal: &Canonical<InEnvironment<Goal<ChalkIr>>>,
         f: &mut dyn FnMut(SubstitutionResult<Canonical<ConstrainedSubst<ChalkIr>>>, bool) -> bool,
     ) -> bool {
         let solver = self.solver();

@@ -59,6 +59,7 @@ impl<I: Interner> InferenceTable<I> {
                 canonical: Canonical {
                     value: value1,
                     binders,
+                    universes: universes.num_canonical_universes(),
                 },
             },
             universes,
@@ -182,15 +183,16 @@ impl UniverseMapExt for UniverseMap {
         Canonical {
             binders: CanonicalVarKinds::from_iter(interner, binders),
             value,
+            universes: self.universes.len(),
         }
     }
 }
 
 /// The `UCollector` is a "no-op" in terms of the value, but along the
 /// way it collects all universes that were found into a vector.
-struct UCollector<'q, I> {
-    universes: &'q mut UniverseMap,
-    interner: I,
+pub(crate) struct UCollector<'q, I> {
+    pub(crate) universes: &'q mut UniverseMap,
+    pub(crate) interner: I,
 }
 
 impl<I: Interner> TypeVisitor<I> for UCollector<'_, I> {
@@ -219,9 +221,9 @@ impl<I: Interner> TypeVisitor<I> for UCollector<'_, I> {
 }
 
 #[derive(FallibleTypeFolder)]
-struct UMapToCanonical<'q, I: Interner> {
-    interner: I,
-    universes: &'q UniverseMap,
+pub(crate) struct UMapToCanonical<'q, I: Interner> {
+    pub(crate) interner: I,
+    pub(crate) universes: &'q UniverseMap,
 }
 
 impl<'i, I: Interner> TypeFolder<I> for UMapToCanonical<'i, I> {

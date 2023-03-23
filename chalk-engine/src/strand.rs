@@ -1,10 +1,12 @@
 use crate::table::AnswerIndex;
 use crate::{ExClause, TableIndex, TimeStamp};
 use std::fmt::Debug;
+use std::ops::ControlFlow;
 
 use chalk_derive::HasInterner;
 use chalk_ir::fold::{FallibleTypeFolder, TypeFoldable};
 use chalk_ir::interner::Interner;
+use chalk_ir::visit::{TypeVisitable, TypeVisitor};
 use chalk_ir::{Canonical, DebruijnIndex, UniverseMap};
 
 #[derive(Clone, Debug, HasInterner)]
@@ -46,5 +48,15 @@ impl<I: Interner> TypeFoldable<I> for Strand<I> {
             last_pursued_time: self.last_pursued_time,
             selected_subgoal: self.selected_subgoal,
         })
+    }
+}
+
+impl<I: Interner> TypeVisitable<I> for Strand<I> {
+    fn visit_with<B>(
+        &self,
+        visitor: &mut dyn TypeVisitor<I, BreakTy = B>,
+        outer_binder: DebruijnIndex,
+    ) -> ControlFlow<B> {
+        self.ex_clause.visit_with(visitor, outer_binder)
     }
 }

@@ -7,7 +7,7 @@ use chalk_ir::fold::TypeFoldable;
 use chalk_ir::interner::{HasInterner, Interner};
 use chalk_ir::{
     Canonical, ClausePriority, DomainGoal, Fallible, Floundered, Goal, GoalData, InEnvironment,
-    NoSolution, ProgramClause, ProgramClauseData, Substitution, UCanonical,
+    NoSolution, ProgramClause, ProgramClauseData, Substitution,
 };
 use chalk_solve::clauses::program_clauses_that_could_match;
 use chalk_solve::debug_span;
@@ -18,7 +18,7 @@ use tracing::{debug, instrument};
 pub(super) trait SolveDatabase<I: Interner>: Sized {
     fn solve_goal(
         &mut self,
-        goal: UCanonical<InEnvironment<Goal<I>>>,
+        goal: Canonical<InEnvironment<Goal<I>>>,
         minimums: &mut Minimums,
         should_continue: impl std::ops::Fn() -> bool + Clone,
     ) -> Fallible<Solution<I>>;
@@ -47,26 +47,21 @@ pub(super) trait SolveIteration<I: Interner>: SolveDatabase<I> {
             return Ok(Solution::Ambig(Guidance::Unknown));
         }
 
-        let UCanonical {
+        let Canonical {
+            binders,
+            value: InEnvironment { environment, goal },
             universes,
-            canonical:
-                Canonical {
-                    binders,
-                    value: InEnvironment { environment, goal },
-                },
         } = canonical_goal.clone();
 
         match goal.data(self.interner()) {
             GoalData::DomainGoal(domain_goal) => {
-                let canonical_goal = UCanonical {
-                    universes,
-                    canonical: Canonical {
-                        binders,
-                        value: InEnvironment {
-                            environment,
-                            goal: domain_goal.clone(),
-                        },
+                let canonical_goal = Canonical {
+                    binders,
+                    value: InEnvironment {
+                        environment,
+                        goal: domain_goal.clone(),
                     },
+                    universes,
                 };
 
                 // "Domain" goals (i.e., leaf goals that are Rust-specific) are
@@ -86,12 +81,10 @@ pub(super) trait SolveIteration<I: Interner>: SolveDatabase<I> {
             }
 
             _ => {
-                let canonical_goal = UCanonical {
+                let canonical_goal = Canonical {
+                    binders,
+                    value: InEnvironment { environment, goal },
                     universes,
-                    canonical: Canonical {
-                        binders,
-                        value: InEnvironment { environment, goal },
-                    },
                 };
 
                 self.solve_via_simplification(&canonical_goal, minimums, should_continue)
@@ -128,7 +121,7 @@ trait SolveIterationHelpers<I: Interner>: SolveDatabase<I> {
     /// them.
     fn solve_from_clauses(
         &mut self,
-        canonical_goal: &UCanonical<InEnvironment<DomainGoal<I>>>,
+        canonical_goal: &Canonical<InEnvironment<DomainGoal<I>>>,
         minimums: &mut Minimums,
         should_continue: impl std::ops::Fn() -> bool + Clone,
     ) -> Fallible<Solution<I>> {
@@ -139,7 +132,7 @@ trait SolveIterationHelpers<I: Interner>: SolveDatabase<I> {
             c.could_match(
                 db.interner(),
                 db.unification_database(),
-                &canonical_goal.canonical.value.goal,
+                &canonical_goal.value.goal,
             )
         };
         clauses.extend(db.custom_clauses().into_iter().filter(could_match));
@@ -180,7 +173,7 @@ trait SolveIterationHelpers<I: Interner>: SolveDatabase<I> {
                     None => (solution, priority),
                     Some((cur, cur_priority)) => combine::with_priorities(
                         self.interner(),
-                        &canonical_goal.canonical.value.goal,
+                        &canonical_goal.value.goal,
                         cur,
                         cur_priority,
                         solution,
@@ -209,12 +202,12 @@ trait SolveIterationHelpers<I: Interner>: SolveDatabase<I> {
 
     fn new_inference_table<T: TypeFoldable<I> + HasInterner<Interner = I> + Clone>(
         &self,
-        ucanonical_goal: &UCanonical<InEnvironment<T>>,
+        ucanonical_goal: &Canonical<InEnvironment<T>>,
     ) -> (InferenceTable<I>, Substitution<I>, InEnvironment<T>) {
         let (infer, subst, canonical_goal) = InferenceTable::from_canonical(
             self.interner(),
             ucanonical_goal.universes,
-            ucanonical_goal.canonical.clone(),
+            ucanonical_goal.clone(),
         );
         (infer, subst, canonical_goal)
     }

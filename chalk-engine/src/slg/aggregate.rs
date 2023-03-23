@@ -15,7 +15,7 @@ use std::fmt::Debug;
 pub trait AggregateOps<I: Interner> {
     fn make_solution(
         &self,
-        root_goal: &UCanonical<InEnvironment<Goal<I>>>,
+        root_goal: &Canonical<InEnvironment<Goal<I>>>,
         answers: impl context::AnswerStream<I>,
         should_continue: impl std::ops::Fn() -> bool + Clone,
     ) -> Option<Solution<I>>;
@@ -26,7 +26,7 @@ pub trait AggregateOps<I: Interner> {
 impl<I: Interner> AggregateOps<I> for SlgContextOps<'_, I> {
     fn make_solution(
         &self,
-        root_goal: &UCanonical<InEnvironment<Goal<I>>>,
+        root_goal: &Canonical<InEnvironment<Goal<I>>>,
         mut answers: impl context::AnswerStream<I>,
         should_continue: impl std::ops::Fn() -> bool + Clone,
     ) -> Option<Solution<I>> {
@@ -108,7 +108,7 @@ impl<I: Interner> AggregateOps<I> for SlgContextOps<'_, I> {
                     break Guidance::Suggested(subst);
                 }
             };
-            subst = merge_into_guidance(interner, &root_goal.canonical, subst, &new_subst);
+            subst = merge_into_guidance(interner, &root_goal, subst, &new_subst);
             num_answers += 1;
         };
 
@@ -141,6 +141,7 @@ fn merge_into_guidance<I: Interner>(
             constraints: _,
         },
         binders: _,
+        universes: _,
     } = answer;
 
     // Collect the types that the two substitutions have in

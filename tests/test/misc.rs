@@ -716,7 +716,7 @@ fn canonicalization_regression() {
                     }
                 }
             }
-        } yields {
+        } yields[SolverChoice::slg_default()] {
             expect![["Unique; substitution [?0 := !2_0]"]]
         }
     }

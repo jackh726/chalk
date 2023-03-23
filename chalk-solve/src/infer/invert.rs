@@ -4,6 +4,7 @@ use chalk_ir::fold::{TypeFoldable, TypeFolder};
 use chalk_ir::interner::HasInterner;
 use chalk_ir::interner::Interner;
 use chalk_ir::*;
+use chalk_ir::visit::TypeVisitable;
 use rustc_hash::FxHashMap;
 
 use super::canonicalize::Canonicalized;
@@ -74,7 +75,7 @@ impl<I: Interner> InferenceTable<I> {
     /// `None`) until the second unification has occurred.)
     pub fn invert<T>(&mut self, interner: I, value: T) -> Option<T>
     where
-        T: TypeFoldable<I> + HasInterner<Interner = I>,
+        T: TypeFoldable<I> + HasInterner<Interner = I> + TypeVisitable<I> + Clone,
     {
         let Canonicalized {
             free_vars,
@@ -100,7 +101,7 @@ impl<I: Interner> InferenceTable<I> {
     /// returning. Just a convenience function.
     pub fn invert_then_canonicalize<T>(&mut self, interner: I, value: T) -> Option<Canonical<T>>
     where
-        T: TypeFoldable<I> + HasInterner<Interner = I>,
+        T: TypeFoldable<I> + HasInterner<Interner = I> + TypeVisitable<I> + Clone,
     {
         let snapshot = self.snapshot();
         let result = self.invert(interner, value);

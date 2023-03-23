@@ -2,13 +2,14 @@ use crate::infer::InferenceTable;
 use chalk_ir::fold::TypeFoldable;
 use chalk_ir::interner::{HasInterner, Interner};
 use chalk_ir::*;
+use chalk_ir::visit::TypeVisitable;
 
 pub trait CanonicalExt<T: HasInterner, I: Interner> {
     fn map<OP, U>(self, interner: I, op: OP) -> Canonical<U>
     where
         OP: FnOnce(T) -> U,
         T: TypeFoldable<I>,
-        U: TypeFoldable<I>,
+        U: TypeFoldable<I> + TypeVisitable<I> + Clone,
         U: HasInterner<Interner = I>;
 }
 
@@ -28,7 +29,7 @@ where
     where
         OP: FnOnce(T) -> U,
         T: TypeFoldable<I>,
-        U: TypeFoldable<I>,
+        U: TypeFoldable<I> + TypeVisitable<I> + Clone,
         U: HasInterner<Interner = I>,
     {
         // Subtle: It is only quite rarely correct to apply `op` and
@@ -51,8 +52,8 @@ where
 }
 
 pub trait GoalExt<I: Interner> {
-    fn into_peeled_goal(self, interner: I) -> UCanonical<InEnvironment<Goal<I>>>;
-    fn into_closed_goal(self, interner: I) -> UCanonical<InEnvironment<Goal<I>>>;
+    fn into_peeled_goal(self, interner: I) -> Canonical<InEnvironment<Goal<I>>>;
+    fn into_closed_goal(self, interner: I) -> Canonical<InEnvironment<Goal<I>>>;
 }
 
 impl<I: Interner> GoalExt<I> for Goal<I> {
@@ -62,7 +63,7 @@ impl<I: Interner> GoalExt<I> for Goal<I> {
     /// variables. Assumes that this goal is a "closed goal" which
     /// does not -- at present -- contain any variables. Useful for
     /// REPLs and tests but not much else.
-    fn into_peeled_goal(self, interner: I) -> UCanonical<InEnvironment<Goal<I>>> {
+    fn into_peeled_goal(self, interner: I) -> Canonical<InEnvironment<Goal<I>>> {
         let mut infer = InferenceTable::new();
         let peeled_goal = {
             let mut env_goal = InEnvironment::new(&Environment::new(interner), self);
@@ -91,8 +92,7 @@ impl<I: Interner> GoalExt<I> for Goal<I> {
                 }
             }
         };
-        let canonical = infer.canonicalize(interner, peeled_goal).quantified;
-        InferenceTable::u_canonicalize(interner, &canonical).quantified
+        infer.canonicalize(interner, peeled_goal).quantified
     }
 
     /// Given a goal with no free variables (a "closed" goal), creates
@@ -104,10 +104,9 @@ impl<I: Interner> GoalExt<I> for Goal<I> {
     /// # Panics
     ///
     /// Will panic if this goal does in fact contain free variables.
-    fn into_closed_goal(self, interner: I) -> UCanonical<InEnvironment<Goal<I>>> {
+    fn into_closed_goal(self, interner: I) -> Canonical<InEnvironment<Goal<I>>> {
         let mut infer = InferenceTable::new();
         let env_goal = InEnvironment::new(&Environment::new(interner), self);
-        let canonical_goal = infer.canonicalize(interner, env_goal).quantified;
-        InferenceTable::u_canonicalize(interner, &canonical_goal).quantified
+        infer.canonicalize(interner, env_goal).quantified
     }
 }

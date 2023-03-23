@@ -1,9 +1,11 @@
 use crate::debug_span;
+use crate::infer::ucanonicalize::UniverseMapExt;
 use chalk_derive::FallibleTypeFolder;
 use chalk_ir::fold::shift::Shift;
 use chalk_ir::fold::{TypeFoldable, TypeFolder};
 use chalk_ir::interner::{HasInterner, Interner};
 use chalk_ir::*;
+use chalk_ir::visit::TypeVisitable;
 use std::cmp::max;
 use tracing::{debug, instrument};
 
@@ -30,7 +32,7 @@ impl<I: Interner> InferenceTable<I> {
     /// also returned.
     pub fn canonicalize<T>(&mut self, interner: I, value: T) -> Canonicalized<T>
     where
-        T: TypeFoldable<I>,
+        T: TypeFoldable<I> + TypeVisitable<I> + Clone,
         T: HasInterner<Interner = I>,
     {
         debug_span!("canonicalize", "{:#?}", value);
@@ -45,13 +47,55 @@ impl<I: Interner> InferenceTable<I> {
             .unwrap();
         let free_vars = q.free_vars.clone();
 
-        Canonicalized {
+        let binders = q.into_binders();
+        debug_span!("u_canonicalize", "{:#?}", value);
+
+        // First, find all the universes that appear in `value`.
+        let mut universes = UniverseMap::new();
+
+        for universe in binders.iter(interner) {
+            universes.add(*universe.skip_kind());
+        }
+
+        value.visit_with(
+            &mut crate::infer::ucanonicalize::UCollector {
+                universes: &mut universes,
+                interner,
+            },
+            DebruijnIndex::INNERMOST,
+        );
+
+        // Now re-map the universes found in value. We have to do this
+        // in a second pass because it is only then that we know the
+        // full set of universes found in the original value.
+        let value1 = value
+            .clone()
+            .try_fold_with(
+                &mut crate::infer::ucanonicalize::UMapToCanonical {
+                    universes: &universes,
+                    interner,
+                },
+                DebruijnIndex::INNERMOST,
+            )
+            .unwrap();
+        let binders = CanonicalVarKinds::from_iter(
+            interner,
+            binders
+                .iter(interner)
+                .map(|pk| pk.map_ref(|&ui| universes.map_universe_to_canonical(ui).unwrap())),
+        );
+
+        let canonicalized = Canonicalized {
             quantified: Canonical {
-                value,
-                binders: q.into_binders(),
+                value: value1,
+                binders,
+                universes: universes.num_canonical_universes(),
             },
             free_vars,
-        }
+            universes,
+        };
+        debug!(?canonicalized);
+        canonicalized
     }
 }
 
@@ -62,6 +106,9 @@ pub struct Canonicalized<T: HasInterner> {
 
     /// The free existential variables, along with the universes they inhabit.
     pub free_vars: Vec<ParameterEnaVariable<T::Interner>>,
+
+    /// A map between the universes in `quantified` and the original universes
+    pub universes: UniverseMap,
 }
 
 #[derive(FallibleTypeFolder)]
@@ -170,7 +217,7 @@ impl<'i, I: Interner> TypeFolder<I> for Canonicalizer<'i, I> {
                     ParameterEnaVariable::new(VariableKind::Ty(kind), self.table.unify.find(var));
 
                 let bound_var = BoundVar::new(DebruijnIndex::INNERMOST, self.add(free_var));
-                debug!(position=?bound_var, "not yet unified");
+                debug!(position=?bound_var, universe=?self.table.var_value(var), "not yet unified");
                 TyKind::BoundVar(bound_var.shifted_in_from(outer_binder)).intern(interner)
             }
         }

@@ -6,7 +6,7 @@ use crate::tables::Tables;
 use crate::{TableIndex, TimeStamp};
 
 use chalk_ir::interner::Interner;
-use chalk_ir::{Goal, InEnvironment, Substitution, UCanonical};
+use chalk_ir::{Goal, InEnvironment, Substitution, Canonical};
 use tracing::debug;
 
 pub(crate) struct Forest<I: Interner> {
@@ -40,7 +40,7 @@ impl<I: Interner> Forest<I> {
     pub fn iter_answers<'f>(
         &'f mut self,
         context: &'f SlgContextOps<'f, I>,
-        goal: &UCanonical<InEnvironment<Goal<I>>>,
+        goal: &Canonical<InEnvironment<Goal<I>>>,
     ) -> impl AnswerStream<I> + 'f {
         let table = self.get_or_create_table_for_ucanonical_goal(context, goal.clone());
         let answer = AnswerIndex::ZERO;
