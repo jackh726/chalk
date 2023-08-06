@@ -58,6 +58,7 @@ impl<I: Interner> UnifyValue for AliasValue<I> {
 //
 // These can be thought after as a set of AliasEq clauses from the alias to the
 // common inference variable.
+#[derive(Debug)]
 pub struct Egraph<I: Interner> {
     alias_map: FxHashMap<AliasVar<I>, FxHashSet<AliasTy<I>>>,
     inverse_alias_map: FxHashMap<AliasTy<I>, AliasVar<I>>,
@@ -83,8 +84,10 @@ impl<I: Interner> Egraph<I> {
         Ok(this)
     }
 
-    pub fn is_alias_var(&self, var: InferenceVar) -> bool {
-        self.inference_alias_map.contains_key(&EnaVariable::from(var))
+    pub fn alias_ty_for_var(&self, var: InferenceVar) -> Option<AliasTy<I>> {
+        let alias_var = self.inference_alias_map.get(&EnaVariable::from(var))?;
+        let alias_set = self.alias_map.get(&alias_var)?;
+        alias_set.iter().next().cloned()
     }
 
     pub fn register_alias_var_constraint(&mut self, interner: I, table: &mut InferenceTable<I>, var: EnaVariable<I>, alias_ty: AliasTy<I>) -> Fallible<()> {
@@ -93,11 +96,13 @@ impl<I: Interner> Egraph<I> {
 
         // If the var itself is bound, that is a separate function
         if let InferenceValue::Bound(ty) = table.unify.probe_value(var) {
+            debug!(?ty);
             return self.register_alias_rigid_constraint(interner, table, alias_ty, ty.ty(interner).unwrap().clone());
         }
 
         let existing_alias_var_a = self.inverse_alias_map.get(&alias_ty).copied();
         let existing_alias_var_b = self.inference_alias_map.get(&var).copied();
+        debug!(?existing_alias_var_a, ?existing_alias_var_b);
         match (existing_alias_var_a, existing_alias_var_b) {
             (Some(a), Some(b)) if a == b => {
                 // Nothing to do, we've already registered this constraint before
@@ -157,24 +162,10 @@ impl<I: Interner> Egraph<I> {
                 aliases.insert(alias_ty);
             }
             (None, Some(b)) => {
-                // We've already seen the alias, which means that there is an
-                // inference variable associated with it
-                let alias_inference_var = self.alias_var_to_inference_var_map.get(&b).unwrap();
-                // We have to unify them, but this *shouldn't* fail (because both
-                // should be "unbound").
-                if let Err(_) = table.unify.unify_var_var(var, *alias_inference_var) {
-                    return Err(NoSolution);
-                }
-                // Make sure we register this mapping for the new inference var
-                // Note: we're not removing the old key-value, even if the root
-                // changes. We should be able to, I think. But it doesn't hurt.
-                self.inference_alias_map.insert(var, b);
-                // If the alias inference var is not the new root, then we need
-                // to update the maps
-                let new_root = table.unify.find(var);
-                if new_root == var {
-                    *self.alias_var_to_inference_var_map.get_mut(&b).unwrap() = var;
-                }
+                // We've already seen the inference variable, so that means there's an alias set
+                self.inverse_alias_map.insert(alias_ty.clone(), b);
+                let aliases = self.alias_map.get_mut(&b).unwrap();
+                aliases.insert(alias_ty);
             }
             (None, None) => {
                 let alias_var_index = self.next_alias_var_index;
@@ -347,6 +338,7 @@ impl<I: Interner> Egraph<I> {
                 None => self.register_alias_rigid_constraint(interner, table, alias_ty, ty)?,
             }
         }
+        debug!(?self);
         Ok(())
     }
 }

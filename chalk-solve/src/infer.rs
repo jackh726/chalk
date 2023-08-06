@@ -11,7 +11,7 @@ mod invert;
 mod test;
 pub mod ucanonicalize;
 pub mod unify;
-mod var;
+pub mod var;
 
 use self::var::*;
 
@@ -201,6 +201,13 @@ impl<I: Interner> InferenceTable<I> {
 
     fn unify_var_var(&mut self, var1: EnaVariable<I>, var2: EnaVariable<I>) -> Fallible<()> {
         if let Err(_) = self.unify.unify_var_var(var1, var2) {
+            return Err(NoSolution);
+        }
+        Ok(())
+    }
+
+    pub fn unify_var_value(&mut self, var: EnaVariable<I>, value: InferenceValue<I>) -> Fallible<()> {
+        if let Err(_) = self.unify.unify_var_value(var, value) {
             return Err(NoSolution);
         }
         Ok(())

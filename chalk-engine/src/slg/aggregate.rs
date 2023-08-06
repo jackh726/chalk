@@ -6,6 +6,7 @@ use chalk_ir::cast::Cast;
 use chalk_ir::interner::Interner;
 use chalk_ir::*;
 use chalk_solve::ext::*;
+use chalk_solve::infer::var::EnaVariable;
 use chalk_solve::infer::{InferenceTable, alias_egraph};
 use chalk_solve::infer::alias_egraph::Egraph;
 use chalk_solve::solve::{Guidance, Solution};
@@ -50,6 +51,9 @@ impl<I: Interner> AggregateOps<I> for SlgContextOps<'_, I> {
             AnswerResult::Answer(answer) => answer,
         };
 
+        dbg!(ambiguous);
+        let (mut infer, _, mut subst) = InferenceTable::from_canonical(interner, 1, subst);
+
         // Otherwise, we either have >1 answer, or else we have
         // ambiguity.  Either way, we are only going to be giving back
         // **guidance**, and with guidance, the caller doesn't get
@@ -76,31 +80,33 @@ impl<I: Interner> AggregateOps<I> for SlgContextOps<'_, I> {
         let solution = loop {
             dbg!(&subst);
             if num_solutions > 1
-                && is_trivial(interner, &subst)
+                && is_trivial(interner, &infer.canonicalize(interner, subst.clone()).quantified)
             {
                 break Some(Solution::Ambig(Guidance::Unknown));
             }
 
-            let next_answer = answers.peek_answer(&should_continue);
+            let next_answer = answers.next_answer(&should_continue);
             dbg!(&next_answer);
             match next_answer {
                 AnswerResult::QuantumExceeded => {
-                    break if subst.value.subst.is_identity_subst(interner) {
+                    break if subst.subst.is_identity_subst(interner) {
                         Some(Solution::Ambig(Guidance::Unknown))
                     } else {
                         Some(Solution::Ambig(Guidance::Suggested(
-                            subst.clone().map(interner, |cs| cs.subst),
+                            infer.canonicalize(interner, subst.subst).quantified
                         )))
                     };
                 }
                 AnswerResult::Floundered => return Some(Solution::Ambig(Guidance::Unknown)),
                 AnswerResult::NoMoreSolutions => {
-                    //dbg!(num_answers, num_solutions, ambiguous);
+                    dbg!(num_answers, num_solutions, ambiguous, &subst, subst.subst.is_identity_subst(interner));
                     break if num_solutions == 1 && !ambiguous {
-                        Some(Solution::Unique(subst))
+                        Some(Solution::Unique(infer.canonicalize(interner, subst).quantified))
+                    } else if subst.subst.is_identity_subst(interner) {
+                        Some(Solution::Ambig(Guidance::Unknown))
                     } else {
                         Some(Solution::Ambig(Guidance::Definite(
-                            subst.clone().map(interner, |cs| cs.subst),
+                            infer.canonicalize(interner, subst.subst).quantified
                         )))
                     };
                 }
@@ -112,84 +118,37 @@ impl<I: Interner> AggregateOps<I> for SlgContextOps<'_, I> {
                         }
                     }
 
+                    let next_answer_subst = infer.instantiate_canonical(interner, next_answer.subst);
+
                     let new_solution;
                     (subst, new_solution) = merge_into_guidance(
                         interner,
+                        &mut infer,
                         &root_goal.canonical,
                         subst,
-                        &next_answer.subst,
+                        next_answer_subst,
                     );
 
                     dbg!(&subst, &new_solution);
 
                     if new_solution {
                         num_solutions += 1;
+                        let canon_subst_subst = infer.canonicalize(interner, subst.subst.clone()).quantified;
                         if !answers.any_future_answer(|new_subst, alias_egraph | {
                             new_subst.may_invalidate(
                                 interner,
-                                &subst.clone().map(interner, |cs| cs.subst),
+                                &canon_subst_subst,
                                 alias_egraph,
                             )
                         }) {
                             break Some(Solution::Ambig(Guidance::Definite(
-                                subst.clone().map(interner, |cs| cs.subst),
+                                infer.canonicalize(interner, subst.subst).quantified,
                             )));
                         }
                     }
                 }
             }
         };
-
-        /*
-                // Exactly 1 unconditional answer?
-                let next_answer = answers.peek_answer(&should_continue);
-                if next_answer.is_quantum_exceeded() {
-                    return if subst.value.subst.is_identity_subst(interner) {
-                        Some(Solution::Ambig(Guidance::Unknown))
-                    } else {
-                        Some(Solution::Ambig(Guidance::Suggested(
-                            subst.clone().map(interner, |cs| cs.subst),
-                        )))
-                    };
-                }
-                if next_answer.is_no_more_solutions() && !ambiguous {
-                    return Some(Solution::Unique(subst));
-                }
-
-                // Extract answers and merge them into `subst`. Stop once we have
-                // a trivial subst (or run out of answers).
-                let mut num_answers = 1;
-                let guidance = loop {
-                    if is_trivial(interner, &subst) {
-                        break Guidance::Unknown;
-                    }
-
-                    if !answers
-                        .any_future_answer(|ref mut new_subst| new_subst.may_invalidate(interner, &subst))
-                    {
-                        break Guidance::Definite(subst);
-                    }
-
-                    if let Some(expected_answers) = self.expected_answers {
-                        if num_answers >= expected_answers {
-                            panic!("Too many answers for solution.");
-                        }
-                    }
-
-                    let new_subst = match answers.next_answer(&should_continue) {
-                        AnswerResult::Answer(answer1) => answer1.subst,
-                        AnswerResult::Floundered => return Some(Solution::Ambig(Guidance::Unknown)),
-                        AnswerResult::NoMoreSolutions => {
-                            break Guidance::Definite(subst);
-                        }
-                        AnswerResult::QuantumExceeded => {
-                            break Guidance::Suggested(subst);
-                        }
-                    };
-                    subst = merge_into_guidance(interner, &root_goal.canonical, subst, &new_subst);
-                    num_answers += 1;
-                };
-        */
 
         if let Some(expected_answers) = self.expected_answers {
             assert_eq!(
@@ -210,24 +169,23 @@ impl<I: Interner> AggregateOps<I> for SlgContextOps<'_, I> {
 /// become `?0 = ?X` (where `?X` is some fresh variable).
 fn merge_into_guidance<I: Interner>(
     interner: I,
+    infer: &mut InferenceTable<I>,
     root_goal: &Canonical<InEnvironment<Goal<I>>>,
-    guidance: Canonical<ConstrainedSubst<I>>,
-    answer: &Canonical<ConstrainedSubst<I>>,
-) -> (Canonical<ConstrainedSubst<I>>, bool) {
-    let (mut infer, _, guidance_) = InferenceTable::from_canonical(interner, 1, guidance.clone());
-    let (_, _, answer) = InferenceTable::from_canonical(interner, 1, answer.clone());
+    guidance: ConstrainedSubst<I>,
+    answer: ConstrainedSubst<I>,
+) -> (ConstrainedSubst<I>, bool) {
     let ConstrainedSubst {
         subst: subst1,
         constraints: _,
         alias_egraph,
     } = answer;
 
-    let mut egraph = Egraph::from_constraints(interner, &mut infer, guidance_.alias_egraph).unwrap();
+    let mut egraph = Egraph::from_constraints(interner, infer, guidance.alias_egraph).unwrap();
 
     // Collect the types that the two substitutions have in
     // common.
+    let mut new_solution = false;
     let aggr_generic_args: Vec<_> = guidance
-        .value
         .subst
         .iter(interner)
         .zip(subst1.iter(interner))
@@ -253,18 +211,21 @@ fn merge_into_guidance<I: Interner>(
 
             // Combine the two types into a new type.
             let mut aggr = AntiUnifier {
-                infer: &mut infer,
+                infer,
                 universe,
                 interner,
                 egraph: &mut egraph,
+                new_solution: false,
             };
-            aggr.aggregate_generic_args(p1, p2)
+            let res = aggr.aggregate_generic_args(p1, p2);
+            new_solution |= aggr.new_solution;
+            res
         })
         .collect();
 
     let aggr_subst = Substitution::from_iter(interner, aggr_generic_args);
 
-    egraph.register_egraph(interner, &mut infer, alias_egraph.clone()).unwrap();
+    egraph.register_egraph(interner, infer, alias_egraph.clone()).unwrap();
     let alias_egraph = egraph.alias_egraph(interner);
     let aggr_subst = ConstrainedSubst {
         subst: aggr_subst,
@@ -273,7 +234,7 @@ fn merge_into_guidance<I: Interner>(
         alias_egraph,
     };
     dbg!(&aggr_subst);
-    (infer.canonicalize(interner, aggr_subst).quantified, true)
+    (aggr_subst, new_solution)
 }
 
 fn is_trivial<I: Interner>(interner: I, subst: &Canonical<ConstrainedSubst<I>>) -> bool {
@@ -333,23 +294,41 @@ struct AntiUnifier<'infer, I: Interner> {
     universe: UniverseIndex,
     interner: I,
     egraph: &'infer mut Egraph<I>,
+    new_solution: bool
 }
 
 impl<I: Interner> AntiUnifier<'_, I> {
     fn aggregate_tys(&mut self, ty0: &Ty<I>, ty1: &Ty<I>) -> Ty<I> {
         let interner = self.interner;
         match (ty0.kind(interner), ty1.kind(interner)) {
+            (TyKind::InferenceVar(var, _), TyKind::InferenceVar(var2, _)) => {
+                if let Some(alias_ty) = self.egraph.alias_ty_for_var(*var) {
+                    match self.egraph.register_alias_var_constraint(interner, self.infer, EnaVariable::from(*var2), alias_ty) {
+                        Ok(_) => ty0.clone(),
+                        Err(_) => self.new_ty_variable(),
+                    }
+                } else {
+                    self.new_ty_variable()
+                }
+            }
+            (TyKind::InferenceVar(var, _), _) => {
+                if let Some(alias_ty) = self.egraph.alias_ty_for_var(*var) {
+                    match self.egraph.register_alias_rigid_constraint(interner, self.infer, alias_ty, ty1.clone()) {
+                        Ok(_) => ty1.clone(),
+                        Err(_) => self.new_ty_variable(),
+                    }
+                } else {
+                    self.new_ty_variable()
+                }
+            }
+
             // If we see bound things on either side, just drop in a
             // fresh variable. This means we will sometimes
             // overgeneralize.  So for example if we have two
             // solutions that are both `(X, X)`, we just produce `(Y,
             // Z)` in all cases.
             (TyKind::InferenceVar(var, _), _) => {
-                if self.egraph.is_alias_var(*var) {
-                    panic!()
-                } else {
-                    self.new_ty_variable()
-                }
+                self.new_ty_variable()
             }
             (_, TyKind::InferenceVar(_, _)) => self.new_ty_variable(),
 
@@ -689,16 +668,19 @@ impl<I: Interner> AntiUnifier<'_, I> {
 
     fn new_ty_variable(&mut self) -> Ty<I> {
         let interner = self.interner;
+        self.new_solution = true;
         self.infer.new_variable(self.universe).to_ty(interner)
     }
 
     fn new_lifetime_variable(&mut self) -> Lifetime<I> {
         let interner = self.interner;
+        self.new_solution = true;
         self.infer.new_variable(self.universe).to_lifetime(interner)
     }
 
     fn new_const_variable(&mut self, ty: Ty<I>) -> Const<I> {
         let interner = self.interner;
+        self.new_solution = true;
         self.infer
             .new_variable(self.universe)
             .to_const(interner, ty)

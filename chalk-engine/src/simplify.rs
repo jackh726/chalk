@@ -9,6 +9,7 @@ use chalk_ir::{
     Substitution, TyKind, TyVariableKind, Variance,
 };
 use chalk_solve::infer::InferenceTable;
+use chalk_solve::infer::alias_egraph::Egraph;
 use tracing::debug;
 
 impl<I: Interner> Forest<I> {
@@ -92,6 +93,7 @@ impl<I: Interner> Forest<I> {
                             Ok(r) => r,
                             Err(_) => return FallibleOrFloundered::NoSolution,
                         };
+                    dbg!(&result);
                     ex_clause.subgoals.extend(
                         result
                             .goals
@@ -99,6 +101,10 @@ impl<I: Interner> Forest<I> {
                             .casted(interner)
                             .map(Literal::Positive),
                     );
+                    ex_clause.alias_egraph = match Egraph::from_constraints(interner, infer, result.alias_egraph.clone()) {
+                        Ok(r) => r.alias_egraph(interner),
+                        Err(_) => return FallibleOrFloundered::NoSolution,
+                    }
                 }
                 GoalData::SubtypeGoal(goal) => {
                     let interner = context.program().interner();

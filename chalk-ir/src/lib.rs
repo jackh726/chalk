@@ -202,8 +202,8 @@ impl<I: Interner> Environment<I> {
 #[derive(Clone, Debug, PartialEq, Eq, Hash, TypeFoldable, TypeVisitable)]
 #[allow(missing_docs)]
 pub struct InEnvironment<G: HasInterner> {
-    pub goal: G,
     pub environment: Environment<G::Interner>,
+    pub goal: G,
 }
 
 impl<G: HasInterner<Interner = I> + Copy, I: Interner> Copy for InEnvironment<G> where
@@ -2678,14 +2678,17 @@ impl<I: Interner> Substitution<I> {
             match generic_arg.data(interner) {
                 GenericArgData::Ty(ty) => match ty.kind(interner) {
                     TyKind::BoundVar(depth) => index_db == *depth,
+                    TyKind::InferenceVar(var, _) => var.index == index as u32,
                     _ => false,
                 },
                 GenericArgData::Lifetime(lifetime) => match lifetime.data(interner) {
                     LifetimeData::BoundVar(depth) => index_db == *depth,
+                    LifetimeData::InferenceVar(var) => var.index == index as u32,
                     _ => false,
                 },
                 GenericArgData::Const(constant) => match &constant.data(interner).value {
                     ConstValue::BoundVar(depth) => index_db == *depth,
+                    ConstValue::InferenceVar(var) => var.index == index as u32,
                     _ => false,
                 },
             }

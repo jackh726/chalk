@@ -13,12 +13,14 @@ use chalk_ir::could_match::CouldMatch;
 use chalk_ir::interner::Interner;
 use chalk_ir::{
     AnswerSubst, Canonical, ConstrainedSubst, Constraints, FallibleOrFloundered, Floundered, Goal,
-    GoalData, InEnvironment, NoSolution, ProgramClause, Substitution, UCanonical, UniverseMap, AliasTy, Ty,
+    GoalData, InEnvironment, NoSolution, ProgramClause, Substitution, UCanonical, UniverseMap, AliasTy, Ty, InferenceVar,
 };
 use chalk_solve::clauses::program_clauses_that_could_match;
 use chalk_solve::coinductive_goal::IsCoinductive;
+use chalk_solve::infer::alias_egraph::Egraph;
 use chalk_solve::infer::ucanonicalize::UCanonicalized;
 use chalk_solve::infer::InferenceTable;
+use chalk_solve::infer::var::EnaVariable;
 use chalk_solve::solve::truncate;
 use itertools::Itertools;
 use tracing::{debug, debug_span, info, instrument};
@@ -1390,6 +1392,72 @@ impl<'forest, I: Interner> SolveState<'forest, I> {
                     self.reconsider_floundered_subgoals(&mut canonical_strand.value.ex_clause);
 
                     if canonical_strand.value.ex_clause.subgoals.is_empty() {
+                        let interner = self.context.program().interner();
+                        let (_, _, strand): (_, _, Strand<_>) = InferenceTable::from_canonical(interner, 1, canonical_strand.clone());
+                        for constraint in strand.ex_clause.alias_egraph {
+                            let var = match constraint.1.kind(interner) {
+                                chalk_ir::TyKind::InferenceVar(var, kind) => *var,
+                                _ => continue,
+                            };
+                            let (mut infer, _, mut strand) = InferenceTable::from_canonical(interner, 1, canonical_strand.clone());
+                            infer.unify_var_value(
+                                var.into(),
+                                chalk_solve::infer::var::InferenceValue::from_ty(interner, Ty::new(interner, chalk_ir::TyKind::Alias(constraint.0))),
+                            )
+                            .unwrap();
+
+                            use std::ops::ControlFlow;
+                            use chalk_ir::visit::TypeSuperVisitable;
+                            use chalk_ir::visit::TypeVisitable;
+                            struct MentionsVar<I: Interner> {
+                                interner: I,
+                                var: InferenceVar,
+                            }
+                            
+                            impl<I: Interner> chalk_ir::visit::TypeVisitor<I> for MentionsVar<I> {
+                                type BreakTy = ();
+                            
+                                fn as_dyn(&mut self) -> &mut dyn chalk_ir::visit::TypeVisitor<I, BreakTy = Self::BreakTy> {
+                                    self
+                                }
+                            
+                                fn visit_ty(&mut self, ty: &Ty<I>, outer_binder: chalk_ir::DebruijnIndex) -> ControlFlow<()> {
+                                    let interner = self.interner;
+                            
+                                    match ty.kind(interner) {
+                                        chalk_ir::TyKind::InferenceVar(var, _) => {
+                                            if self.var == *var {
+                                                ControlFlow::Break(())
+                                            } else {
+                                                ControlFlow::Continue(())
+                                            }
+                                        }
+                                        _ => ty.super_visit_with(self, outer_binder),
+                                    }
+                                }
+
+                                fn interner(&self) -> I {
+                                    self.interner
+                                }
+                            }
+
+                            let ExClause {
+                                subgoals,
+                                floundered_subgoals,
+                                ..
+                            } = &mut strand.ex_clause;
+                            for i in (0..floundered_subgoals.len()).rev() {
+                                let mut mentions = MentionsVar { interner, var };
+                                if floundered_subgoals[i].visit_with(&mut mentions, chalk_ir::DebruijnIndex::INNERMOST).is_break() {
+                                    let floundered_subgoal = floundered_subgoals.swap_remove(i);
+                                    subgoals.push(floundered_subgoal.floundered_literal);
+                                }
+                            }
+                            let canonical_strand =
+                                Forest::canonicalize_strand_from(self.context, &mut infer, &strand);
+                            self.forest.tables[self.stack.top().table].enqueue_strand(canonical_strand);
+                        }
+
                         // All the subgoals of this strand floundered. We may be able
                         // to get helpful information from this strand still, but it
                         // will *always* be ambiguous, so mark it as so.

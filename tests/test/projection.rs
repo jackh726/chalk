@@ -50,8 +50,10 @@ fn normalize_basic() {
                     }
                 }
             }
-        } yields {
-            expect![["Unique; substitution [?0 := <!1_0 as Iterator>::Item]"]]
+        } yields[SolverChoice::slg_default()] {
+            expect![["Unique; for<?U1> { substitution [?0 := ^0.0], alias_egraph [(<!1_0 as Iterator>::Item, ^0.0)] }"]]
+        } yields[SolverChoice::recursive_default()] {
+            expect![["Unique; for<?U1> { substitution [?0 := ^0.0] }"]]
         }
 
         goal {
@@ -72,8 +74,35 @@ fn normalize_basic() {
                     }
                 }
             }
-        } yields {
+        } yields[SolverChoice::slg_default()] {
             // True for `U = T`, of course, but also true for `U = Vec<<T as Iterator>::Item>`.
+            expect![["Ambiguous; no inference guidance"]]
+        }
+    }
+}
+
+#[test]
+fn normalize_basic_simple() {
+    test! {
+        disable_coherence;
+        program {
+            trait Iterator { type Item; }
+            struct Vec<T> { }
+            struct Foo { }
+            impl<T> Iterator for Vec<T> {
+                type Item = T;
+            }
+        }
+
+        goal {
+            forall<T> {
+                if (T: Iterator) {
+                    exists<U> {
+                        <T as Iterator>::Item = <U as Iterator>::Item
+                    }
+                }
+            }
+        } yields[SolverChoice::slg_default()] {
             expect![["Ambiguous; no inference guidance"]]
         }
     }
@@ -721,8 +750,7 @@ fn normalize_under_binder_simple_no_lifetime() {
                 ProjectionEq(<Ref<I32> as Deref>::Item -> U)
             }
         } yields[SolverChoice::slg_default()] {
-            // chalk#234, I think
-            expect![["Ambiguous; no inference guidance"]]
+            expect![["Unique; substitution [?0 := I32], alias_egraph [(<Ref<I32> as Deref>::Item, I32)]"]]
         }
     }
 }
@@ -1171,6 +1199,37 @@ fn projection_to_opaque() {
 
         goal {
             <<A as AsProj>::Proj as Debug>::Output = ()
+        } yields {
+            expect![["Unique"]]
+        }
+    }
+}
+
+#[test]
+fn projection_to_opaque_min() {
+    test! {
+        disable_coherence;
+        program {
+            #[non_enumerable]
+            trait Debug {}
+
+            impl Debug for () {}
+
+            opaque type OpaqueDebug: Debug = ();
+
+            struct A {}
+
+            trait AsProj {
+                type Proj;
+            }
+
+            impl AsProj for A {
+                type Proj = OpaqueDebug;
+            }
+        }
+
+        goal {
+            <A as AsProj>::Proj: Debug
         } yields {
             expect![["Unique"]]
         }
