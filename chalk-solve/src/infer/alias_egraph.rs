@@ -58,6 +58,7 @@ impl<I: Interner> UnifyValue for AliasValue<I> {
 //
 // These can be thought after as a set of AliasEq clauses from the alias to the
 // common inference variable.
+#[derive(Debug)]
 pub struct Egraph<I: Interner> {
     alias_map: FxHashMap<AliasVar<I>, FxHashSet<AliasTy<I>>>,
     inverse_alias_map: FxHashMap<AliasTy<I>, AliasVar<I>>,
@@ -83,6 +84,7 @@ impl<I: Interner> Egraph<I> {
         Ok(this)
     }
 
+    #[tracing::instrument(level = "debug", skip(self, interner, table))]
     pub fn register_alias_var_constraint(&mut self, interner: I, table: &mut InferenceTable<I>, var: EnaVariable<I>, alias_ty: AliasTy<I>) -> Fallible<()> {
         // Make sure we're only handling the root var; this simplifies things
         let var = table.unify.find(var);
@@ -186,9 +188,11 @@ impl<I: Interner> Egraph<I> {
         Ok(())
     }
 
+    #[tracing::instrument(level = "debug", skip(self, table))]
     pub fn register_alias_alias_constraint(&mut self, table: &mut InferenceTable<I>, alias_a: AliasTy<I>, alias_b: AliasTy<I>) -> Fallible<()> {
         let existing_alias_var_a = self.inverse_alias_map.get(&alias_a).copied();
         let existing_alias_var_b = self.inverse_alias_map.get(&alias_b).copied();
+        dbg!(&existing_alias_var_a, &existing_alias_var_b);
         match (existing_alias_var_a, existing_alias_var_b) {
             (Some(a), Some(b)) if a == b => {
                 // Nothing to do, we've already registered this constraint before
@@ -266,11 +270,13 @@ impl<I: Interner> Egraph<I> {
                 let alias_inference_variable = table.new_variable(UniverseIndex::root());
                 self.inference_alias_map.insert(alias_inference_variable, alias_var);
                 self.alias_var_to_inference_var_map.insert(alias_var, alias_inference_variable);
+                dbg!(&self);
             }
         }
         Ok(())
     }
 
+    #[tracing::instrument(level = "debug", skip(self, interner, table))]
     pub fn register_alias_rigid_constraint(&mut self, interner: I, table: &mut InferenceTable<I>, alias: AliasTy<I>, ty: Ty<I>) -> Fallible<()> {
         let existing_alias_var = self.inverse_alias_map.get(&alias).copied();
         match existing_alias_var {

@@ -202,8 +202,8 @@ impl<I: Interner> Environment<I> {
 #[derive(Clone, Debug, PartialEq, Eq, Hash, TypeFoldable, TypeVisitable)]
 #[allow(missing_docs)]
 pub struct InEnvironment<G: HasInterner> {
-    pub goal: G,
     pub environment: Environment<G::Interner>,
+    pub goal: G,
 }
 
 impl<G: HasInterner<Interner = I> + Copy, I: Interner> Copy for InEnvironment<G> where

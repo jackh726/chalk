@@ -816,7 +816,6 @@ impl<I: Interner> ToProgramClauses<I> for AssociatedTyDatum<I> {
                 // Retrieve the trait ref embedding the associated type
                 let trait_ref = builder.db.trait_ref_from_projection(&projection);
 
-                /*
                 let projection_eq = AliasEq {
                     alias: AliasTy::Projection(projection.clone()),
                     ty: projection_ty.clone(),
@@ -829,7 +828,6 @@ impl<I: Interner> ToProgramClauses<I> for AssociatedTyDatum<I> {
                 //        AliasEq(<Self as Foo>::Assoc = <Self as Foo>::Assoc).
                 //    }
                 builder.push_fact_with_priority(projection_eq, None, ClausePriority::Low);
-                */
 
                 /*
                 // Construct an application from the projection. So if we have `<T as Iterator>::Item`,

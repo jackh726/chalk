@@ -9,11 +9,13 @@ use crate::{
     TimeStamp,
 };
 
+use chalk_derive::FallibleTypeFolder;
 use chalk_ir::could_match::CouldMatch;
+use chalk_ir::fold::{TypeFoldable, TypeFolder};
 use chalk_ir::interner::Interner;
 use chalk_ir::{
     AnswerSubst, Canonical, ConstrainedSubst, Constraints, FallibleOrFloundered, Floundered, Goal,
-    GoalData, InEnvironment, NoSolution, ProgramClause, Substitution, UCanonical, UniverseMap,
+    GoalData, InEnvironment, NoSolution, ProgramClause, Substitution, UCanonical, UniverseMap, DebruijnIndex, AliasTy, Ty, TyKind,
 };
 use chalk_solve::clauses::program_clauses_that_could_match;
 use chalk_solve::coinductive_goal::IsCoinductive;
@@ -1652,6 +1654,40 @@ impl<'forest, I: Interner> SolveState<'forest, I> {
             if floundered_subgoals[i].floundered_time < *answer_time {
                 let floundered_subgoal = floundered_subgoals.swap_remove(i);
                 subgoals.push(floundered_subgoal.floundered_literal);
+            } else {
+                #[derive(FallibleTypeFolder)]
+                struct SubGoalAliasSubstitutor<'a, I: Interner> {
+                    alias_egraph: &'a [(AliasTy<I>, Ty<I>)],
+                    interner: I,
+                }
+                impl<'a, I: Interner> TypeFolder<I> for SubGoalAliasSubstitutor<'a, I> {
+                    fn as_dyn(&mut self) -> &mut dyn TypeFolder<I> {
+                        self
+                    }
+
+                    fn interner(&self) -> I {
+                        self.interner
+                    }
+
+                    fn fold_free_var_ty(&mut self, bound_var: chalk_ir::BoundVar, outer_binder: chalk_ir::DebruijnIndex) -> chalk_ir::Ty<I> {
+                        for (alias, var) in self.alias_egraph {
+                            if var.bound_var(self.interner).map_or(false, |var| bound_var == var) {
+                                return Ty::new(self.interner, TyKind::Alias(alias.clone()));
+                            }
+                        }
+                        Ty::new(self.interner, TyKind::BoundVar(bound_var))
+                    }
+                }
+                let mut substitutor = SubGoalAliasSubstitutor {
+                    alias_egraph: &ex_clause.alias_egraph,
+                    interner: self.context.program().interner(),
+                };
+                let subst_literal = floundered_subgoals[i].floundered_literal.clone().fold_with(&mut substitutor, DebruijnIndex::INNERMOST);
+                if subst_literal != floundered_subgoals[i].floundered_literal {
+                    let floundered_subgoal = floundered_subgoals.swap_remove(i);
+                    subgoals.push(subst_literal);
+                }
+
             }
         }
     }

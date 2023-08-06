@@ -2,14 +2,17 @@ use crate::context::{self, AnswerResult};
 use crate::slg::SlgContextOps;
 use crate::slg::SubstitutionExt;
 use crate::CompleteAnswer;
+use chalk_derive::FallibleTypeFolder;
 use chalk_ir::cast::Cast;
+use chalk_ir::fold::{TypeFolder, TypeFoldable};
 use chalk_ir::interner::Interner;
 use chalk_ir::*;
+use chalk_ir::visit::{TypeVisitor, TypeVisitable};
 use chalk_solve::ext::*;
 use chalk_solve::infer::{InferenceTable, alias_egraph};
 use chalk_solve::infer::alias_egraph::Egraph;
 use chalk_solve::solve::{Guidance, Solution};
-use rustc_hash::FxHashMap;
+use rustc_hash::{FxHashMap, FxHashSet};
 
 use ena::unify::{UnifyKey, UnifyValue};
 use std::fmt::Debug;
@@ -49,7 +52,7 @@ impl<I: Interner> AggregateOps<I> for SlgContextOps<'_, I> {
             }
             AnswerResult::Answer(answer) => answer,
         };
-        //dbg!(&subst, ambiguous);
+        dbg!(&subst, ambiguous);
 
         // Otherwise, we either have >1 answer, or else we have
         // ambiguity.  Either way, we are only going to be giving back
@@ -82,7 +85,7 @@ impl<I: Interner> AggregateOps<I> for SlgContextOps<'_, I> {
             }
 
             let next_answer = answers.peek_answer(&should_continue);
-            //dbg!(&next_answer);
+            dbg!(&next_answer);
             match next_answer {
                 AnswerResult::QuantumExceeded => {
                     break if subst.value.subst.is_identity_subst(interner) {
@@ -97,7 +100,9 @@ impl<I: Interner> AggregateOps<I> for SlgContextOps<'_, I> {
                 AnswerResult::NoMoreSolutions => {
                     //dbg!(num_answers, num_solutions, ambiguous);
                     break if num_solutions == 1 && !ambiguous {
-                        Some(Solution::Unique(subst))
+                        Some(Solution::Unique(simplify_constrained_subst(interner, subst)))
+                    } else if num_solutions == 1 && is_trivial(interner, &subst.clone().map(interner, |cs| cs.subst)) {
+                        Some(Solution::Ambig(Guidance::Unknown))
                     } else {
                         Some(Solution::Ambig(Guidance::Definite(
                             subst.clone().map(interner, |cs| cs.subst),
@@ -726,6 +731,81 @@ impl<I: Interner> UnifyValue for AliasValue<I> {
             (&AliasValue::Bound(_), &AliasValue::Bound(_)) => Err(()),
         }
     }
+}
+
+fn simplify_constrained_subst<I: Interner>(interner: I, constrained_subst: Canonical<ConstrainedSubst<I>>) -> Canonical<ConstrainedSubst<I>> {
+    #[derive(FallibleTypeFolder)]
+    struct AliasVarReplacer<'a, I: Interner> {
+        alias_egraph: &'a [(AliasTy<I>, Ty<I>)],
+        interner: I,
+    }
+    impl<'a, I: Interner> TypeFolder<I> for AliasVarReplacer<'a, I> {
+        fn as_dyn(&mut self) -> &mut dyn TypeFolder<I> {
+            self
+        }
+
+        fn interner(&self) -> I {
+            self.interner
+        }
+
+        fn fold_inference_ty(
+            &mut self,
+            var: InferenceVar,
+            kind: TyVariableKind,
+            outer_binder: DebruijnIndex,
+        ) -> Ty<I> {
+            for (alias, var_ty) in self.alias_egraph {
+                if var_ty.inference_var(self.interner).map_or(false, |var_ty| var == var_ty) {
+                    return Ty::new(self.interner, TyKind::Alias(alias.clone()));
+                }
+            }
+            Ty::new(self.interner, TyKind::InferenceVar(var, kind))
+        }
+    }
+    struct InferenceVarCollector<I: Interner> {
+        interner: I,
+        vars: FxHashSet<InferenceVar>,
+    }
+    impl<I: Interner> TypeVisitor<I> for InferenceVarCollector<I> {
+        type BreakTy = ();
+
+        fn as_dyn(&mut self) -> &mut dyn TypeVisitor<I, BreakTy = Self::BreakTy> {
+            self
+        }
+
+        fn interner(&self) -> I {
+            self.interner
+        }
+
+        fn visit_inference_var(
+            &mut self,
+            var: InferenceVar,
+            _outer_binder: DebruijnIndex,
+        ) -> std::ops::ControlFlow<Self::BreakTy> {
+            self.vars.insert(var);
+            std::ops::ControlFlow::Continue(())
+        }
+    }
+    dbg!(&constrained_subst);
+    let (mut infer, _, constrained_subst) = InferenceTable::from_canonical(interner, 1, constrained_subst);
+    let mut substitutor = AliasVarReplacer {
+        alias_egraph: &constrained_subst.alias_egraph,
+        interner,
+    };
+    dbg!(&constrained_subst);
+    let constraints = constrained_subst.constraints.fold_with(&mut substitutor, DebruijnIndex::INNERMOST);
+    let subst = constrained_subst.subst.fold_with(&mut substitutor, DebruijnIndex::INNERMOST);
+    let alias_egraph = constrained_subst.alias_egraph;
+    dbg!(&subst);
+    let mut inference_collector = InferenceVarCollector { interner: interner, vars: FxHashSet::default() };
+    constraints.visit_with(&mut inference_collector, DebruijnIndex::INNERMOST);
+    subst.visit_with(&mut inference_collector, DebruijnIndex::INNERMOST);
+    let alias_egraph = alias_egraph.into_iter().filter(|(_, ty)| ty.inference_var(interner).map_or(false, |ty| inference_collector.vars.contains(&ty))).collect();
+    infer.canonicalize(interner, ConstrainedSubst {
+        alias_egraph,
+        constraints,
+        subst,
+    }).quantified
 }
 
 #[cfg(test)]

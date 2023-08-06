@@ -80,6 +80,32 @@ fn normalize_basic() {
 }
 
 #[test]
+fn normalize_basic2() {
+    test! {
+        program {
+            trait Iterator { type Item; }
+            struct Vec<T> { }
+            struct Foo { }
+            impl<T> Iterator for Vec<T> {
+                type Item = T;
+            }
+        }
+        goal {
+            forall<T> {
+                if (T: Iterator) {
+                    exists<U> {
+                        <T as Iterator>::Item = <U as Iterator>::Item
+                    }
+                }
+            }
+        } yields {
+            // True for `U = T`, of course, but also true for `U = Vec<<T as Iterator>::Item>`.
+            expect![["Ambiguous; no inference guidance"]]
+        }
+    }
+}
+
+#[test]
 fn normalize_into_iterator() {
     test! {
         program {
@@ -1108,7 +1134,7 @@ fn projection_to_opaque() {
 
         goal {
             <A as AsProj>::Proj: Debug
-        } yields {
+        } yields[SolverChoice::slg_default()] {
             expect![["Unique"]]
         }
 

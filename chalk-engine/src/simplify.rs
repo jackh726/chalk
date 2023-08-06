@@ -9,6 +9,7 @@ use chalk_ir::{
     Substitution, TyKind, TyVariableKind, Variance,
 };
 use chalk_solve::infer::InferenceTable;
+use chalk_solve::infer::alias_egraph::Egraph;
 use tracing::debug;
 
 impl<I: Interner> Forest<I> {
@@ -99,6 +100,18 @@ impl<I: Interner> Forest<I> {
                             .casted(interner)
                             .map(Literal::Positive),
                     );
+                    let mut egraph = match Egraph::from_constraints(interner, infer, std::mem::take(&mut ex_clause.alias_egraph)) {
+                        Ok(e) => e,
+                        Err(_) => return FallibleOrFloundered::Floundered,
+                    };
+                    dbg!(&egraph);
+                    match egraph.register_egraph(interner, infer, result.alias_egraph) {
+                        Ok(_) => {},
+                        Err(_) => return FallibleOrFloundered::Floundered,
+                    }
+                    dbg!(&egraph);
+                    ex_clause.alias_egraph = egraph.alias_egraph(interner);
+                    dbg!(&ex_clause);
                 }
                 GoalData::SubtypeGoal(goal) => {
                     let interner = context.program().interner();
@@ -130,6 +143,19 @@ impl<I: Interner> Forest<I> {
                             .casted(interner)
                             .map(Literal::Positive),
                     );
+                    let mut egraph = match Egraph::from_constraints(interner, infer, std::mem::take(&mut ex_clause.alias_egraph)) {
+                        Ok(e) => e,
+                        Err(_) => return FallibleOrFloundered::Floundered,
+                    };
+                    dbg!(&egraph);
+                    match egraph.register_egraph(interner, infer, result.alias_egraph) {
+                        Ok(_) => {},
+                        Err(_) => return FallibleOrFloundered::Floundered,
+                    }
+                    dbg!(&egraph);
+                    ex_clause.alias_egraph = egraph.alias_egraph(interner);
+                    dbg!(&ex_clause);
+                    
                 }
                 GoalData::DomainGoal(domain_goal) => {
                     ex_clause
