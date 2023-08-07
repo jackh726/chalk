@@ -424,9 +424,11 @@ pub fn program_clauses_that_could_match<I: Interner>(
                 }
 
                 _ if self_ty.is_general_var(interner, binders) => {
+                    /*
                     if trait_datum.is_non_enumerable_trait() || trait_datum.is_auto_trait() {
                         return Err(Floundered);
                     }
+                    */
                 }
 
                 TyKind::OpaqueType(opaque_ty_id, _) => {

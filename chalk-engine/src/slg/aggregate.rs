@@ -3,18 +3,21 @@ use crate::slg::SlgContextOps;
 use crate::slg::SubstitutionExt;
 use crate::CompleteAnswer;
 use chalk_ir::cast::Cast;
+use chalk_ir::fold::TypeFoldable;
 use chalk_ir::interner::Interner;
 use chalk_ir::*;
+use chalk_ir::visit::{TypeVisitor, TypeSuperVisitable, TypeVisitable};
 use chalk_solve::ext::*;
 use chalk_solve::infer::var::EnaVariable;
 use chalk_solve::infer::{InferenceTable, alias_egraph};
 use chalk_solve::infer::alias_egraph::Egraph;
 use chalk_solve::solve::{Guidance, Solution};
-use rustc_hash::FxHashMap;
+use rustc_hash::FxHashSet;
 
 use ena::unify::{UnifyKey, UnifyValue};
 use std::fmt::Debug;
 use std::marker::PhantomData;
+use std::ops::ControlFlow;
 
 /// Methods for combining solutions to yield an aggregate solution.
 pub trait AggregateOps<I: Interner> {
@@ -100,6 +103,7 @@ impl<I: Interner> AggregateOps<I> for SlgContextOps<'_, I> {
                 AnswerResult::Floundered => return Some(Solution::Ambig(Guidance::Unknown)),
                 AnswerResult::NoMoreSolutions => {
                     dbg!(num_answers, num_solutions, ambiguous, &subst, subst.subst.is_identity_subst(interner));
+                    let subst = clean_subst(interner, subst);
                     break if num_solutions == 1 && !ambiguous {
                         Some(Solution::Unique(infer.canonicalize(interner, subst).quantified))
                     } else if subst.subst.is_identity_subst(interner) {
@@ -209,7 +213,7 @@ fn merge_into_guidance<I: Interner>(
                 GenericArgData::Const(_) => (),
             };
 
-            // Combine the two types into a new type.
+            // Combine the two types into a new type.&Canonical<
             let mut aggr = AntiUnifier {
                 infer,
                 universe,
@@ -277,6 +281,85 @@ fn is_trivial<I: Interner>(interner: I, subst: &Canonical<ConstrainedSubst<I>>) 
 
     // ...and the alias egraph is empty...
     subst.value.alias_egraph.is_empty()
+}
+
+fn clean_subst<I: Interner>(interner: I, subst: ConstrainedSubst<I>) -> ConstrainedSubst<I> {
+    struct VarCollector<I: Interner> {
+        interner: I,
+        vars: FxHashSet<InferenceVar>,
+    }
+    impl<I: Interner> TypeVisitor<I> for VarCollector<I> {
+        type BreakTy = ();
+
+        fn as_dyn(&mut self) -> &mut dyn TypeVisitor<I, BreakTy = Self::BreakTy> {
+            self
+        }
+
+        fn interner(&self) -> I {
+            self.interner
+        }
+
+        fn visit_inference_var(
+            &mut self,
+            var: InferenceVar,
+            _outer_binder: DebruijnIndex,
+        ) -> ControlFlow<Self::BreakTy> {
+            self.vars.insert(var);
+            std::ops::ControlFlow::Continue(())
+        }
+    }
+    let mut collector = VarCollector {
+        interner,
+        vars: FxHashSet::default(),
+    };
+    subst.subst.visit_with(&mut collector, DebruijnIndex::INNERMOST);
+    subst.constraints.visit_with(&mut collector, DebruijnIndex::INNERMOST);
+
+    struct MentionsVar<I: Interner> {
+        interner: I,
+        var: InferenceVar,
+    }
+    
+    impl<I: Interner> TypeVisitor<I> for MentionsVar<I> {
+        type BreakTy = bool;
+    
+        fn as_dyn(&mut self) -> &mut dyn TypeVisitor<I, BreakTy = Self::BreakTy> {
+            self
+        }
+    
+        fn visit_ty(&mut self, ty: &Ty<I>, outer_binder: chalk_ir::DebruijnIndex) -> ControlFlow<bool> {
+            let interner = self.interner;
+    
+            match ty.kind(interner) {
+                chalk_ir::TyKind::InferenceVar(var, _) => {
+                    if self.var == *var {
+                        ControlFlow::Break(true)
+                    } else {
+                        ControlFlow::Continue(())
+                    }
+                }
+                _ => ty.super_visit_with(self, outer_binder),
+            }
+        }
+
+        fn interner(&self) -> I {
+            self.interner
+        }
+    }
+
+    dbg!(&subst.alias_egraph);
+    let alias_egraph: Vec<_> = subst.alias_egraph.clone().into_iter().filter(|c| {
+        let mut ty_collector = VarCollector {
+            interner,
+            vars: FxHashSet::default(),
+        };
+        c.1.visit_with(&mut ty_collector, DebruijnIndex::INNERMOST);
+        dbg!(&collector.vars, &ty_collector.vars);
+        !collector.vars.is_disjoint(&ty_collector.vars)
+    }).collect();
+    dbg!(alias_egraph);
+
+    subst
 }
 
 /// [Anti-unification] is the act of taking two things that do not
