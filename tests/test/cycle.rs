@@ -31,7 +31,7 @@ fn inner_cycle() {
         goal {
             exists<T> { T: A }
         } yields {
-            expect![["Ambiguous; no inference guidance"]]
+            expect![[r#"Ambiguous; definite substitution for<?U0> { [?0 := ^0.0] }"#]]
         }
     }
 }
@@ -73,7 +73,7 @@ fn cycle_many_solutions() {
                 T: Foo
             }
         } yields {
-            expect![["Ambiguous; no inference guidance"]]
+            expect![[r#"Ambiguous; definite substitution for<?U0> { [?0 := ^0.0] }"#]]
         }
     }
 }
@@ -141,7 +141,7 @@ fn multiple_ambiguous_cycles() {
                 T: WF
             }
         } yields {
-            expect![["Ambiguous; no inference guidance"]]
+            expect![[r#"Ambiguous; definite substitution for<?U0> { [?0 := ^0.0] }"#]]
         }
     }
 }
@@ -256,7 +256,7 @@ fn cycle_with_ambiguity() {
                 Rc<S>: From<T>
             }
         } yields[SolverChoice::slg_default()] {
-            expect![["Ambiguous; no inference guidance"]]
+            expect![[r#"Ambiguous; definite substitution for<?U0,?U0> { [?0 := ^0.0, ?1 := ^0.1] }"#]]
         }
     }
 }

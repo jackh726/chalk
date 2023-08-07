@@ -61,7 +61,7 @@ fn prove_infer() {
         goal {
             exists<A, B> { A: Map<B> }
         } yields {
-            expect![["Ambiguous; no inference guidance"]]
+            expect![[r#"Ambiguous; definite substitution for<?U0,?U0> { [?0 := ^0.0, ?1 := ^0.1] }"#]]
         }
 
         goal {
@@ -416,7 +416,7 @@ fn suggested_subst() {
         } yields {
             // FIXME: we need to rework the "favor environment" heuristic.
             // Should be: "Ambiguous; suggested substitution [?0 := bool]"
-            expect![["Ambiguous; no inference guidance"]]
+            expect![[r#"Ambiguous; definite substitution for<?U0> { [?0 := ^0.0] }"#]]
         }
 
         goal {
@@ -428,7 +428,7 @@ fn suggested_subst() {
                 }
             }
         } yields {
-            expect![["Ambiguous; no inference guidance"]]
+            expect![[r#"Ambiguous; definite substitution for<?U0> { [?0 := ^0.0] }"#]]
         }
 
         goal {
@@ -436,7 +436,7 @@ fn suggested_subst() {
                 Bar: SomeTrait<T>
             }
         } yields {
-            expect![["Ambiguous; no inference guidance"]]
+            expect![[r#"Ambiguous; definite substitution for<?U0> { [?0 := ^0.0] }"#]]
         }
 
         goal {
@@ -447,7 +447,7 @@ fn suggested_subst() {
             }
         } yields {
             // FIXME: same as above, should be: expect![["Ambiguous; suggested substitution [?0 := bool]"]]
-            expect![["Ambiguous; no inference guidance"]]
+            expect![[r#"Ambiguous; definite substitution for<?U0> { [?0 := ^0.0] }"#]]
         }
 
         goal {
@@ -459,7 +459,7 @@ fn suggested_subst() {
                 }
             }
         } yields {
-            expect![["Ambiguous; no inference guidance"]]
+            expect![[r#"Ambiguous; definite substitution for<?U0> { [?0 := ^0.0] }"#]]
         }
     }
 }
@@ -534,7 +534,7 @@ fn partial_overlap_2() {
                 }
             }
         } yields {
-            expect![["Ambiguous; no inference guidance"]]
+            expect![[r#"Ambiguous; definite substitution for<?U1> { [?0 := ^0.0] }"#]]
         }
 
         goal {
@@ -654,7 +654,7 @@ fn unify_types_in_ambiguous_impl() {
         goal {
             exists<T,U> { A<T>: Trait<U> }
         } yields {
-            expect![["Ambiguous; definite substitution for<?U0> { [?0 := ^0.0, ?1 := ^0.0] }"]]
+            expect![[r#"No possible solution"#]]
         }
     }
 }

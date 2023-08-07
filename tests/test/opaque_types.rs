@@ -77,13 +77,13 @@ fn opaque_where_clause() {
                 WellFormed(T)
             }
         } yields {
-            expect![["Unique"]]
+            expect![[r#"Unique; for<?U0> { alias_egraph [(T, ^0.0)] }"#]]
         }
 
         goal {
             WellFormed(T)
         } yields {
-            expect![["No possible solution"]]
+            expect![[r#"Unique; alias_egraph [(T, Ty)]"#]]
         }
 
         goal {
@@ -165,9 +165,9 @@ fn opaque_generics() {
                 <Foo<Bar> as Iterator>::Item = T
             }
         } yields[SolverChoice::slg_default()] {
-            expect![["Ambiguous; no inference guidance"]] // #234
+            expect![[r#"Unique; for<?U0> { substitution [?0 := ^0.0], alias_egraph [(<!Foo<Bar> as Iterator>::Item, ^0.0)] }"#]] // #234
         } yields[SolverChoice::recursive_default()] {
-            expect![["Unique; substitution [?0 := Bar]"]]
+            expect![[r#"Unique; for<?U0> { substitution [?0 := ^0.0] }"#]]
         }
     }
 }

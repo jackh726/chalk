@@ -98,7 +98,7 @@ fn integer_ambiguity() {
                 N: Foo
             }
         } yields {
-            expect![["Ambiguous; no inference guidance"]]
+            expect![[r#"Ambiguous; definite substitution for<?U0> { [?0 := ^0.0] }"#]]
         }
     }
 }
@@ -119,7 +119,7 @@ fn float_ambiguity() {
                 N: Foo
             }
         } yields {
-            expect![["Ambiguous; no inference guidance"]]
+            expect![[r#"Ambiguous; definite substitution for<?U0> { [?0 := ^0.0] }"#]]
         }
     }
 }
@@ -238,7 +238,7 @@ fn ambiguous_add() {
                 <T as Add<U>>::Output = V
             }
         } yields {
-            expect![["Ambiguous; no inference guidance"]]
+            expect![[r#"Unique; for<?U0,?U0,?U0> { substitution [?0 := ^0.0, ?1 := ^0.1, ?2 := ^0.2], alias_egraph [(<^0.0 as Add<^0.1>>::Output, ^0.2)] }"#]]
         }
     }
 }

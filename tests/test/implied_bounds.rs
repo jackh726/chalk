@@ -82,7 +82,7 @@ fn gat_implied_bounds() {
                 }
             }
         } yields {
-            expect![["Unique"]]
+            expect![[r#"Unique; for<?U2> { alias_egraph [(<!1_0 as Foo>::Item<!2_1>, ^0.0)] }"#]]
         }
     }
 }
@@ -102,7 +102,7 @@ fn implied_from_env() {
                 }
             }
         } yields {
-            expect![["Unique"]]
+            expect![[r#"No possible solution"#]]
         }
 
         goal {

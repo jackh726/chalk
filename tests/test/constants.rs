@@ -62,7 +62,7 @@ fn multi_impl() {
                 S<N>: Trait
             }
         } yields {
-            expect![["Ambiguous; no inference guidance"]]
+            expect![[r#"Ambiguous; definite substitution for<?U0> { [?0 := ^0.0] }"#]]
         }
 
         goal {

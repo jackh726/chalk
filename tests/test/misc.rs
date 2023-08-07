@@ -36,7 +36,7 @@ fn futures_ambiguity() {
         goal {
             forall<T> { if (T: FutureResult) { exists<I, E> { T: Future<Output = Result<I, E>> } } }
         } yields {
-            expect![["Unique; substitution [?0 := (FutureResult::Item)<!1_0>, ?1 := (FutureResult::Error)<!1_0>]"]]
+            expect![[r#"Unique; for<?U1,?U1> { substitution [?0 := ^0.0, ?1 := ^0.1], alias_egraph [(<!1_0 as FutureResult>::Item, ^0.0), (<!1_0 as FutureResult>::Error, ^0.1)] }"#]]
         }
     }
 }
@@ -402,7 +402,7 @@ fn non_enumerable_traits_direct() {
         goal {
             exists<A> { A: NonEnumerable }
         } yields_first[SolverChoice::slg(3, None)] {
-            expect![["Floundered"]]
+            expect![[r#"substitution [?0 := Foo]"#]]
         }
 
         goal {
@@ -439,7 +439,7 @@ fn non_enumerable_traits_indirect() {
         goal {
             exists<A> { A: Debug }
         } yields_first[SolverChoice::slg(3, None)] {
-            expect![["Floundered"]]
+            expect![[r#"substitution [?0 := Foo]"#]]
         }
     }
 }
@@ -468,7 +468,7 @@ fn non_enumerable_traits_double() {
         goal {
             exists<A> { A: Debug }
         } yields_first[SolverChoice::slg(3, None)] {
-            expect![["Floundered"]]
+            expect![[r#"substitution [?0 := Foo]"#]]
         }
     }
 }
@@ -571,7 +571,7 @@ fn flounder_ambiguous() {
         goal {
             exists<T> { Ref<T>: IntoIterator }
         } yields {
-            expect![["Ambiguous; no inference guidance"]]
+            expect![[r#"Unique; substitution [?0 := A]"#]]
         }
     }
 }
@@ -602,7 +602,7 @@ fn normalize_ambiguous() {
                 Normalize(<Ref<T> as IntoIterator>::Item -> U)
             }
         } yields {
-            expect![["Ambiguous; no inference guidance"]]
+            expect![[r#"Ambiguous; definite substitution for<?U0,?U0> { [?0 := ^0.0, ?1 := ^0.1] }"#]]
         }
     }
 }
@@ -798,7 +798,7 @@ fn endless_loop() {
                 <MyClosure<fn() -> T> as FnOnce>::Output = T
             }
         } yields {
-            expect![["Unique; for<?U0> { substitution [?0 := ^0.0] }"]]
+            expect![[r#"Unique; for<?U0> { substitution [?0 := ^0.0], alias_egraph [(<MyClosure<"rust" for<0> [?0 := ^1.0]> as FnOnce>::Output, ^0.0)] }"#]]
         }
     }
 }
@@ -813,7 +813,7 @@ fn env_bound_vars() {
                 }
             }
         } yields[SolverChoice::slg_default()] {
-            expect![["Ambiguous; definite substitution for<?U0> { [?0 := '^0.0] }"]]
+            expect![[r#"Unique; for<?U0> { substitution [?0 := '^0.0] }"#]]
         } yields[SolverChoice::recursive_default()] {
             expect![[r#"Unique; for<?U0> { substitution [?0 := '^0.0] }"#]]
         }
@@ -841,7 +841,7 @@ fn recursive_hang() {
                 }
             }
         } yields[SolverChoice::slg_default()] {
-            expect![["Ambiguous; definite substitution for<?U0,?U0> { [?0 := ^0.0, ?1 := '^0.1] }"]]
+            expect![[r#"Ambiguous; no inference guidance"#]]
         } yields[SolverChoice::recursive_default()] {
             expect![[r#"Ambiguous; no inference guidance"#]]
         }

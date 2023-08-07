@@ -398,10 +398,10 @@ fn dyn_associated_type_binding() {
                 }
             }
         } yields[SolverChoice::recursive_default()] {
-            expect![["Unique; substitution [?0 := Int(I32)]"]]
+            expect![[r#"Unique; for<?U0> { substitution [?0 := ^0.0] }"#]]
         } yields[SolverChoice::slg_default()] {
             // #234
-            expect![["Ambiguous; no inference guidance"]]
+            expect![[r#"Unique; for<?U0> { substitution [?0 := ^0.0], alias_egraph [(<dyn for<type> [for<> Implemented(^1.0: FnOnce<0>), for<> AliasEq(<^1.0 as FnOnce<0>>::Output = Int(I32))] + '!1_0 as FnOnce<0>>::Output, ^0.0)] }"#]]
         }
     }
 }

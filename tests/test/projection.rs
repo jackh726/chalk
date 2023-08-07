@@ -76,7 +76,7 @@ fn normalize_basic() {
             }
         } yields[SolverChoice::slg_default()] {
             // True for `U = T`, of course, but also true for `U = Vec<<T as Iterator>::Item>`.
-            expect![["Ambiguous; no inference guidance"]]
+            expect![[r#"Unique; for<?U1,?U0> { substitution [?0 := ^0.0], alias_egraph [(<!1_0 as Iterator>::Item, ^0.1), (<^0.0 as Iterator>::Item, ^0.1)] }"#]]
         }
     }
 }
@@ -103,7 +103,7 @@ fn normalize_basic_simple() {
                 }
             }
         } yields[SolverChoice::slg_default()] {
-            expect![["Ambiguous; no inference guidance"]]
+            expect![[r#"Unique; for<?U1,?U0> { substitution [?0 := ^0.0], alias_egraph [(<!1_0 as Iterator>::Item, ^0.1), (<^0.0 as Iterator>::Item, ^0.1)] }"#]]
         }
     }
 }
@@ -158,9 +158,9 @@ fn projection_equality() {
             }
         } yields[SolverChoice::slg_default()] {
             // this is wrong, chalk#234
-            expect![["Ambiguous; no inference guidance"]]
+            expect![[r#"Unique; for<?U0> { substitution [?0 := ^0.0], alias_egraph [(<S as Trait1>::Type, ^0.0)] }"#]]
         } yields[SolverChoice::recursive_default()] {
-            expect![["Unique; substitution [?0 := Uint(U32)]"]]
+            expect![[r#"Unique; for<?U0> { substitution [?0 := ^0.0] }"#]]
         }
 
         goal {
@@ -169,9 +169,9 @@ fn projection_equality() {
             }
         } yields[SolverChoice::slg_default()] {
             // this is wrong, chalk#234
-            expect![["Ambiguous; no inference guidance"]]
+            expect![[r#"Unique; for<?U0> { substitution [?0 := ^0.0], alias_egraph [(<S as Trait1>::Type, ^0.0)] }"#]]
         } yields[SolverChoice::recursive_default()] {
-            expect![["Unique; substitution [?0 := Uint(U32)]"]]
+            expect![[r#"Unique; for<?U0> { substitution [?0 := ^0.0] }"#]]
         }
     }
 }
@@ -199,7 +199,7 @@ fn projection_equality_priority1() {
             }
         } yields[SolverChoice::slg_default()] {
             // this is wrong, chalk#234
-            expect![["Ambiguous; definite substitution for<?U0> { [?0 := S2, ?1 := ^0.0] }"]]
+            expect![[r#"Unique; for<?U0> { substitution [?0 := S2, ?1 := ^0.0], alias_egraph [(<S1 as Trait1<S2>>::Type, ^0.0)] }"#]]
         } yields[SolverChoice::recursive_default()] {
             // This is.. interesting, but not necessarily wrong.
             // It's certainly true that based on the impls we see
@@ -211,7 +211,7 @@ fn projection_equality_priority1() {
             // constrained `T` at all? I can't come up with
             // an example where that's the case, so maybe
             // not. -Niko
-            expect![["Unique; substitution [?0 := S2, ?1 := Uint(U32)]"]]
+            expect![[r#"Unique; for<?U0> { substitution [?0 := S2, ?1 := ^0.0] }"#]]
         }
     }
 }
@@ -243,7 +243,7 @@ fn projection_equality_priority2() {
             }
         } yields {
             // Correct: Ambiguous because Out1 = Y and Out1 = S1 are both value.
-            expect![["Ambiguous; no inference guidance"]]
+            expect![[r#"Ambiguous; definite substitution for<?U1,?U1> { [?0 := ^0.0, ?1 := ^0.1] }"#]]
         }
 
         goal {
@@ -257,7 +257,7 @@ fn projection_equality_priority2() {
             }
         } yields {
             // Constraining Out1 = Y gives us only one choice.
-            expect![["Unique; substitution [?0 := !1_1, ?1 := <!1_0 as Trait1<!1_1>>::Type]"]]
+            expect![[r#"Unique; for<?U1> { substitution [?0 := !1_1, ?1 := ^0.0], alias_egraph [(<!1_0 as Trait1<!1_1>>::Type, ^0.0)] }"#]]
         }
 
         goal {
@@ -271,7 +271,7 @@ fn projection_equality_priority2() {
             }
         } yields {
             // Constraining Out1 = Y gives us only one choice.
-            expect![["Unique; substitution [?0 := !1_1, ?1 := <!1_0 as Trait1<!1_1>>::Type]"]]
+            expect![[r#"Unique; for<?U1> { substitution [?0 := !1_1, ?1 := ^0.0], alias_egraph [(<!1_0 as Trait1<!1_1>>::Type, ^0.0)] }"#]]
         }
 
         goal {
@@ -287,11 +287,11 @@ fn projection_equality_priority2() {
             // chalk#234: Constraining Out1 = S1 gives us only the choice to
             // use the impl, but the SLG solver can't decide between
             // the placeholder and the normalized form.
-            expect![["Ambiguous; definite substitution for<?U1> { [?0 := S1, ?1 := ^0.0] }"]]
+            expect![[r#"Unique; for<?U1> { substitution [?0 := S1, ?1 := ^0.0], alias_egraph [(<!1_0 as Trait1<S1>>::Type, ^0.0)] }"#]]
         } yields[SolverChoice::recursive_default()] {
             // Constraining Out1 = S1 gives us only one choice, use the impl,
             // and the recursive solver prefers the normalized form.
-            expect![["Unique; substitution [?0 := S1, ?1 := Uint(U32)]"]]
+            expect![[r#"Unique; for<?U1> { substitution [?0 := S1, ?1 := ^0.0] }"#]]
         }
     }
 }
@@ -313,9 +313,9 @@ fn projection_equality_from_env() {
                 }
             }
         } yields[SolverChoice::slg_default()] {
-            expect![["Unique; substitution [?0 := Uint(U32)]"]]
+            expect![[r#"Unique; substitution [?0 := Uint(U32)], alias_egraph [(<!1_0 as Trait1>::Type, Uint(U32))]"#]]
         } yields[SolverChoice::recursive_default()] {
-            expect![["Unique; substitution [?0 := Uint(U32)]"]]
+            expect![[r#"Unique; for<?U1> { substitution [?0 := ^0.0] }"#]]
         }
     }
 }
@@ -341,9 +341,9 @@ fn projection_equality_nested() {
             }
         } yields[SolverChoice::slg_default()] {
             // this is wrong, chalk#234
-            expect![["Ambiguous; no inference guidance"]]
+            expect![[r#"Ambiguous; definite substitution for<?U1> { [?0 := ^0.0] }"#]]
         }  yields[SolverChoice::recursive_default()] {
-            expect![["Unique; substitution [?0 := Uint(U32)]"]]
+            expect![[r#"Unique; for<?U1> { substitution [?0 := ^0.0] }"#]]
         }
     }
 }
@@ -686,7 +686,7 @@ fn forall_projection_gat() {
                 WellFormed(<Unit as DropOuter<'a>>::Item<T>)
             }
         } yields {
-            expect![["No possible solution"]]
+            expect![[r#"Unique; for<?U1,?U1,?U1,?U0> { alias_egraph [(<^0.1 as DropOuter<'^0.2>>::Item<^0.0>, ^0.3), (<Unit as DropOuter<'!1_0>>::Item<!1_1>, ^0.3)] }"#]]
         }
 
         goal {
@@ -723,7 +723,7 @@ fn gat_in_non_enumerable_trait() {
                 }
             }
         } yields {
-            expect![[r#"Unique"#]]
+            expect![[r#"Unique; for<?U2,?U2> { alias_egraph [(<!1_0 as PointerFamily>::Pointer<^0.0>, ^0.1), (<!1_0 as PointerFamily>::Pointer<!2_0>, ^0.1)] }"#]]
         }
     }
 }
@@ -779,7 +779,7 @@ fn normalize_under_binder_simple() {
             }
         } yields[SolverChoice::slg_default()] {
             // chalk#234, I think
-            expect![["Ambiguous; no inference guidance"]]
+            expect![[r#"Unique; for<?U0> { substitution [?0 := ^0.0], alias_egraph [(<Ref<'!1_0, I32> as Deref<'!1_0>>::Item, ^0.0)] }"#]]
         }
     }
 }
@@ -816,9 +816,9 @@ fn normalize_under_binder() {
             }
         } yields[SolverChoice::slg_default()] {
             // chalk#234, I think
-            expect![["Ambiguous; no inference guidance"]]
+            expect![[r#"Unique; for<?U0> { substitution [?0 := ^0.0], alias_egraph [(<Ref<'!1_0, I32> as Deref<'!1_0>>::Item, ^0.0)] }"#]]
         } yields[SolverChoice::recursive_default()] {
-            expect![["Unique; substitution [?0 := I32]"]]
+            expect![[r#"Unique; for<?U0> { substitution [?0 := ^0.0] }"#]]
         }
 
         goal {
@@ -839,9 +839,9 @@ fn normalize_under_binder() {
             }
         } yields[SolverChoice::slg_default()] {
             // chalk#234, I think
-            expect![["Ambiguous; no inference guidance"]]
+            expect![[r#"Unique; for<?U1> { substitution [?0 := ^0.0], alias_egraph [(<Ref<'!1_0, I32> as Id<'!1_0>>::Item, ^0.0)] }"#]]
         } yields[SolverChoice::recursive_default()] {
-            expect![["Unique; substitution [?0 := Ref<'!1_0, I32>]"]]
+            expect![[r#"Unique; for<?U1> { substitution [?0 := ^0.0] }"#]]
         }
 
         goal {
@@ -894,7 +894,7 @@ fn normalize_under_binder_multi() {
                 }
             }
         } yields_all {
-            expect![["substitution [?0 := I32]"]],
+            expect![[r#"for<?U0> { substitution [?0 := ^0.0], alias_egraph [(<Ref<'!1_0, I32> as Deref<'!1_0>>::Item, ^0.0)] }"#]],
             expect![["for<?U0,?U0> { substitution [?0 := <Ref<'^0.0, I32> as Deref<'^0.1>>::Item], lifetime constraints [\
             InEnvironment { environment: Env([]), goal: '!1_0: '^0.1 }, \
             InEnvironment { environment: Env([]), goal: '^0.1: '!1_0 }, \
@@ -1031,7 +1031,7 @@ fn gat_unify_with_implied_wc() {
                 }
             }
         } yields {
-            expect![["Unique"]]
+            expect![[r#"No possible solution"#]]
         }
 
         goal {
@@ -1109,7 +1109,7 @@ fn issue_144_regression() {
                 }
             }
         } yields {
-            expect![["Unique"]]
+            expect![[r#"Unique; for<?U1,?U1> { alias_egraph [(<!1_0 as Foo>::Item<^0.0>, ^0.1), (<!1_0 as Foo>::Item<!1_1>, ^0.1)] }"#]]
         }
     }
 }
@@ -1136,7 +1136,7 @@ fn guidance_for_projection_on_flounder() {
                 }
             }
         } yields[SolverChoice::recursive_default()] {
-            expect![["Ambiguous; definite substitution for<?U0> { [?0 := ^0.0, ?1 := ^0.0] }"]]
+            expect![[r#"Unique; for<?U0,?U0> { substitution [?0 := ^0.0, ?1 := ^0.1] }"#]]
         }
     }
 }
@@ -1160,7 +1160,7 @@ fn projection_to_dyn() {
         goal {
             <() as AsDyn>::Dyn: Debug
         } yields {
-            expect![["Unique"]]
+            expect![[r#"No possible solution"#]]
         }
     }
 }
@@ -1194,13 +1194,13 @@ fn projection_to_opaque() {
         goal {
             <A as AsProj>::Proj: Debug
         } yields {
-            expect![["Unique"]]
+            expect![[r#"Unique; alias_egraph [(<A as AsProj>::Proj, 0)]"#]]
         }
 
         goal {
             <<A as AsProj>::Proj as Debug>::Output = ()
         } yields {
-            expect![["Unique"]]
+            expect![[r#"Ambiguous; no inference guidance"#]]
         }
     }
 }
@@ -1231,7 +1231,7 @@ fn projection_to_opaque_min() {
         goal {
             <A as AsProj>::Proj: Debug
         } yields {
-            expect![["Unique"]]
+            expect![[r#"Unique; alias_egraph [(<A as AsProj>::Proj, 0)]"#]]
         }
     }
 }
