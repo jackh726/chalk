@@ -256,7 +256,7 @@ fn cycle_with_ambiguity() {
                 Rc<S>: From<T>
             }
         } yields[SolverChoice::slg_default()] {
-            expect![[r#"Ambiguous; definite substitution for<?U0,?U0> { [?0 := ^0.0, ?1 := ^0.1] }"#]]
+            expect![[r#"Ambiguous; definite substitution for<?U0,?U0> { [?0 := [^0.0], ?1 := ^0.1] }"#]]
         }
     }
 }

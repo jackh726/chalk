@@ -158,7 +158,7 @@ fn projection_equality() {
             }
         } yields[SolverChoice::slg_default()] {
             // this is wrong, chalk#234
-            expect![[r#"Unique; for<?U0> { substitution [?0 := ^0.0], alias_egraph [(<S as Trait1>::Type, ^0.0)] }"#]]
+            expect![[r#"Unique; substitution [?0 := Uint(U32)], alias_egraph [(<S as Trait1>::Type, Uint(U32))]"#]]
         } yields[SolverChoice::recursive_default()] {
             expect![[r#"Unique; for<?U0> { substitution [?0 := ^0.0] }"#]]
         }
@@ -169,7 +169,7 @@ fn projection_equality() {
             }
         } yields[SolverChoice::slg_default()] {
             // this is wrong, chalk#234
-            expect![[r#"Unique; for<?U0> { substitution [?0 := ^0.0], alias_egraph [(<S as Trait1>::Type, ^0.0)] }"#]]
+            expect![[r#"Unique; substitution [?0 := Uint(U32)], alias_egraph [(<S as Trait1>::Type, Uint(U32))]"#]]
         } yields[SolverChoice::recursive_default()] {
             expect![[r#"Unique; for<?U0> { substitution [?0 := ^0.0] }"#]]
         }
@@ -199,7 +199,7 @@ fn projection_equality_priority1() {
             }
         } yields[SolverChoice::slg_default()] {
             // this is wrong, chalk#234
-            expect![[r#"Unique; for<?U0> { substitution [?0 := S2, ?1 := ^0.0], alias_egraph [(<S1 as Trait1<S2>>::Type, ^0.0)] }"#]]
+            expect![[r#"Unique; substitution [?0 := S2, ?1 := Uint(U32)], alias_egraph [(<S1 as Trait1<S2>>::Type, Uint(U32))]"#]]
         } yields[SolverChoice::recursive_default()] {
             // This is.. interesting, but not necessarily wrong.
             // It's certainly true that based on the impls we see
@@ -287,7 +287,7 @@ fn projection_equality_priority2() {
             // chalk#234: Constraining Out1 = S1 gives us only the choice to
             // use the impl, but the SLG solver can't decide between
             // the placeholder and the normalized form.
-            expect![[r#"Unique; for<?U1> { substitution [?0 := S1, ?1 := ^0.0], alias_egraph [(<!1_0 as Trait1<S1>>::Type, ^0.0)] }"#]]
+            expect![[r#"Unique; substitution [?0 := S1, ?1 := Uint(U32)], alias_egraph [(<!1_0 as Trait1<S1>>::Type, Uint(U32))]"#]]
         } yields[SolverChoice::recursive_default()] {
             // Constraining Out1 = S1 gives us only one choice, use the impl,
             // and the recursive solver prefers the normalized form.
@@ -779,7 +779,7 @@ fn normalize_under_binder_simple() {
             }
         } yields[SolverChoice::slg_default()] {
             // chalk#234, I think
-            expect![[r#"Unique; for<?U0> { substitution [?0 := ^0.0], alias_egraph [(<Ref<'!1_0, I32> as Deref<'!1_0>>::Item, ^0.0)] }"#]]
+            expect![[r#"Unique; substitution [?0 := I32], alias_egraph [(<Ref<'!1_0, I32> as Deref<'!1_0>>::Item, I32)]"#]]
         }
     }
 }
@@ -816,7 +816,7 @@ fn normalize_under_binder() {
             }
         } yields[SolverChoice::slg_default()] {
             // chalk#234, I think
-            expect![[r#"Unique; for<?U0> { substitution [?0 := ^0.0], alias_egraph [(<Ref<'!1_0, I32> as Deref<'!1_0>>::Item, ^0.0)] }"#]]
+            expect![[r#"Unique; substitution [?0 := I32], alias_egraph [(<Ref<'!1_0, I32> as Deref<'!1_0>>::Item, I32)]"#]]
         } yields[SolverChoice::recursive_default()] {
             expect![[r#"Unique; for<?U0> { substitution [?0 := ^0.0] }"#]]
         }
@@ -839,7 +839,7 @@ fn normalize_under_binder() {
             }
         } yields[SolverChoice::slg_default()] {
             // chalk#234, I think
-            expect![[r#"Unique; for<?U1> { substitution [?0 := ^0.0], alias_egraph [(<Ref<'!1_0, I32> as Id<'!1_0>>::Item, ^0.0)] }"#]]
+            expect![[r#"Unique; substitution [?0 := Ref<'!1_0, I32>], alias_egraph [(<Ref<'!1_0, I32> as Id<'!1_0>>::Item, Ref<'!1_0, I32>)]"#]]
         } yields[SolverChoice::recursive_default()] {
             expect![[r#"Unique; for<?U1> { substitution [?0 := ^0.0] }"#]]
         }
@@ -894,12 +894,8 @@ fn normalize_under_binder_multi() {
                 }
             }
         } yields_all {
-            expect![[r#"for<?U0> { substitution [?0 := ^0.0], alias_egraph [(<Ref<'!1_0, I32> as Deref<'!1_0>>::Item, ^0.0)] }"#]],
-            expect![["for<?U0,?U0> { substitution [?0 := <Ref<'^0.0, I32> as Deref<'^0.1>>::Item], lifetime constraints [\
-            InEnvironment { environment: Env([]), goal: '!1_0: '^0.1 }, \
-            InEnvironment { environment: Env([]), goal: '^0.1: '!1_0 }, \
-            InEnvironment { environment: Env([]), goal: '!1_0: '^0.0 }, \
-            InEnvironment { environment: Env([]), goal: '^0.0: '!1_0 }] }"]]
+            expect![[r#"substitution [?0 := I32]"#]],
+            expect![[r#"for<?U0> { substitution [?0 := ^0.0], alias_egraph [(<Ref<'!1_0, I32> as Deref<'!1_0>>::Item, ^0.0)] }"#]]
         }
 
         goal {
@@ -1160,7 +1156,7 @@ fn projection_to_dyn() {
         goal {
             <() as AsDyn>::Dyn: Debug
         } yields {
-            expect![[r#"No possible solution"#]]
+            expect![[r#"Unique"#]]
         }
     }
 }
@@ -1194,13 +1190,13 @@ fn projection_to_opaque() {
         goal {
             <A as AsProj>::Proj: Debug
         } yields {
-            expect![[r#"Unique; alias_egraph [(<A as AsProj>::Proj, 0)]"#]]
+            expect![[r#"Unique; alias_egraph [(OpaqueDebug, 0), (<A as AsProj>::Proj, 0)]"#]]
         }
 
         goal {
             <<A as AsProj>::Proj as Debug>::Output = ()
         } yields {
-            expect![[r#"Ambiguous; no inference guidance"#]]
+            expect![[r#"Unique; alias_egraph [(OpaqueDebug, OpaqueDebug), (<A as AsProj>::Proj, <A as AsProj>::Proj)]"#]]
         }
     }
 }
@@ -1231,7 +1227,7 @@ fn projection_to_opaque_min() {
         goal {
             <A as AsProj>::Proj: Debug
         } yields {
-            expect![[r#"Unique; alias_egraph [(<A as AsProj>::Proj, 0)]"#]]
+            expect![[r#"Unique; alias_egraph [(OpaqueDebug, 0), (<A as AsProj>::Proj, 0)]"#]]
         }
     }
 }

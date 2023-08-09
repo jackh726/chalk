@@ -36,7 +36,7 @@ fn futures_ambiguity() {
         goal {
             forall<T> { if (T: FutureResult) { exists<I, E> { T: Future<Output = Result<I, E>> } } }
         } yields {
-            expect![[r#"Unique; for<?U1,?U1> { substitution [?0 := ^0.0, ?1 := ^0.1], alias_egraph [(<!1_0 as FutureResult>::Item, ^0.0), (<!1_0 as FutureResult>::Error, ^0.1)] }"#]]
+            expect![[r#"Unique; for<?U1,?U1> { substitution [?0 := ^0.0, ?1 := ^0.1], alias_egraph [(<!1_0 as FutureResult>::Error, ^0.1), (<!1_0 as FutureResult>::Item, ^0.0)] }"#]]
         }
     }
 }
@@ -841,7 +841,7 @@ fn recursive_hang() {
                 }
             }
         } yields[SolverChoice::slg_default()] {
-            expect![[r#"Ambiguous; no inference guidance"#]]
+            expect![[r#"Ambiguous; definite substitution for<?U0,?U0> { [?0 := ^0.0, ?1 := '^0.1] }"#]]
         } yields[SolverChoice::recursive_default()] {
             expect![[r#"Ambiguous; no inference guidance"#]]
         }

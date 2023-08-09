@@ -682,9 +682,16 @@ impl<'forest, I: Interner> SolveState<'forest, I> {
                 selected_subgoal.subgoal_table,
                 selected_subgoal.answer_index,
             );
-            if !self.forest.tables[selected_subgoal.subgoal_table]
+            let is_trivial = self.forest.tables[selected_subgoal.subgoal_table]
                 .table_goal
                 .is_trivial_substitution(self.context.program().interner(), &answer.subst)
+                && answer
+                    .subst
+                    .value
+                    .constraints
+                    .is_empty(self.context.program().interner())
+                && answer.subst.value.alias_egraph.is_empty();
+            if !is_trivial
             {
                 let mut next_subgoal = selected_subgoal.clone();
                 next_subgoal.answer_index.increment();
@@ -1694,6 +1701,8 @@ impl<'forest, I: Interner> SolveState<'forest, I> {
                     .is_empty(self.context.program().interner())
                 && answer.subst.value.alias_egraph.is_empty()
         };
+
+        dbg!(is_trivial_answer);
 
         if let Some(answer_index) = self.forest.tables[table].push_answer(answer) {
             // See above, if we have a *complete* and trivial answer, we don't

@@ -385,7 +385,9 @@ impl<I: Interner> AntiUnifier<'_, I> {
         let interner = self.interner;
         match (ty0.kind(interner), ty1.kind(interner)) {
             (TyKind::InferenceVar(var, _), TyKind::InferenceVar(var2, _)) => {
-                if let Some(alias_ty) = self.egraph.alias_ty_for_var(*var) {
+                if var == var2 {
+                    ty0.clone()
+                } else if let Some(alias_ty) = self.egraph.alias_ty_for_var(*var) {
                     match self.egraph.register_alias_var_constraint(interner, self.infer, EnaVariable::from(*var2), alias_ty) {
                         Ok(_) => ty0.clone(),
                         Err(_) => self.new_ty_variable(),
@@ -401,19 +403,28 @@ impl<I: Interner> AntiUnifier<'_, I> {
                         Err(_) => self.new_ty_variable(),
                     }
                 } else {
-                    self.new_ty_variable()
+                    self.infer.unify_var_value(
+                        (*var).into(),
+                        chalk_solve::infer::var::InferenceValue::from_ty(interner, ty1.clone()),
+                    ).unwrap();
+                    ty0.clone()
                 }
             }
 
-            // If we see bound things on either side, just drop in a
-            // fresh variable. This means we will sometimes
-            // overgeneralize.  So for example if we have two
-            // solutions that are both `(X, X)`, we just produce `(Y,
-            // Z)` in all cases.
-            (TyKind::InferenceVar(var, _), _) => {
-                self.new_ty_variable()
+            (_, TyKind::InferenceVar(var, _)) => {
+                if let Some(alias_ty) = self.egraph.alias_ty_for_var(*var) {
+                    match self.egraph.register_alias_rigid_constraint(interner, self.infer, alias_ty, ty0.clone()) {
+                        Ok(_) => ty1.clone(),
+                        Err(_) => self.new_ty_variable(),
+                    }
+                } else {
+                    self.infer.unify_var_value(
+                        (*var).into(),
+                        chalk_solve::infer::var::InferenceValue::from_ty(interner, ty0.clone()),
+                    ).unwrap();
+                    ty1.clone()
+                }
             }
-            (_, TyKind::InferenceVar(_, _)) => self.new_ty_variable(),
 
             // Ugh. Aggregating two types like `for<'a> fn(&'a u32,
             // &'a u32)` and `for<'a, 'b> fn(&'a u32, &'b u32)` seems
