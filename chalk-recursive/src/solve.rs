@@ -144,17 +144,15 @@ trait SolveIterationHelpers<I: Interner>: SolveDatabase<I> {
                         if let TyKind::Closure(closure_id, substs) = ty.kind(self.interner()) {
                             // There is only one associated type here, so not gonna check that it's `Output`
                             let inputs_and_outputs = self.db().closure_inputs_and_output(*closure_id, substs);
-                            if inputs_and_outputs.binders.is_empty(self.interner()) {
-                                let return_type = &inputs_and_outputs.skip_binders().return_type;
-                                if &normalize.ty == return_type {
-                                    return Ok(Solution::Unique(Canonical {
-                                        value: ConstrainedSubst {
-                                            subst: canonical_goal.trivial_substitution(self.interner()),
-                                            constraints: Constraints::empty(self.interner()),
-                                        },
-                                        binders: canonical_goal.canonical.binders.clone(),
-                                    }))
-                                }
+                            let return_type = &inputs_and_outputs.skip_binders().return_type;
+                            if &normalize.ty == return_type {
+                                return Ok(Solution::Unique(Canonical {
+                                    value: ConstrainedSubst {
+                                        subst: canonical_goal.trivial_substitution(self.interner()),
+                                        constraints: Constraints::empty(self.interner()),
+                                    },
+                                    binders: canonical_goal.canonical.binders.clone(),
+                                }))
                             }
                         }
                     }

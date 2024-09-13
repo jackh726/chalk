@@ -891,7 +891,7 @@ fn chalk_688() {
 
             struct Ordering {}
 
-            closure foo<F>(self,) {}
+            closure foo<F>(self,) -> Ordering {}
 
             impl<A, B, U> FnOnce<(A, B)> for foo<fn(A, B) -> U> {
                 type Output = U;
