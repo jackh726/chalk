@@ -83,11 +83,6 @@ pub fn add_builtin_assoc_program_clauses<I: Interner>(
     well_known: WellKnownTrait,
     self_ty: Ty<I>,
 ) -> Result<(), Floundered> {
-    if matches!(self_ty.kind(db.interner()), TyKind::Closure(..)) && matches!(well_known, WellKnownTrait::FnOnce) {
-        //fn_family::add_fn_trait_program_clauses(db, builder, well_known, self_ty);
-        return Err(Floundered);
-    }
-
     // If `self_ty` contains bound vars, we want to universally quantify them.
     // `Generalize` collects them for us.
     let generalized = generalize::Generalize::apply(db.interner(), self_ty);

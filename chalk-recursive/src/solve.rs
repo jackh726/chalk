@@ -6,12 +6,12 @@ use chalk_ir::could_match::CouldMatch;
 use chalk_ir::fold::TypeFoldable;
 use chalk_ir::interner::{HasInterner, Interner};
 use chalk_ir::{
-    Canonical, ClausePriority, DomainGoal, Fallible, Floundered, Goal, GoalData, InEnvironment,
-    NoSolution, ProgramClause, ProgramClauseData, Substitution, UCanonical,
+    AliasTy, Canonical, ClausePriority, ConstrainedSubst, Constraints, DomainGoal, Fallible, Floundered, Goal, GoalData, InEnvironment, NoSolution, ProgramClause, ProgramClauseData, Substitution, TyKind, UCanonical
 };
 use chalk_solve::clauses::program_clauses_that_could_match;
 use chalk_solve::debug_span;
 use chalk_solve::infer::InferenceTable;
+use chalk_solve::rust_ir::WellKnownTrait;
 use chalk_solve::{Guidance, RustIrDatabase, Solution};
 use tracing::{debug, instrument};
 
@@ -133,6 +133,34 @@ trait SolveIterationHelpers<I: Interner>: SolveDatabase<I> {
         should_continue: impl std::ops::Fn() -> bool + Clone,
     ) -> Fallible<Solution<I>> {
         let mut clauses = vec![];
+
+        if let DomainGoal::Normalize(normalize) = &canonical_goal.canonical.value.goal {
+            if let AliasTy::Projection(proj) = &normalize.alias {
+                let assoc_ty_data = self.db().associated_ty_data(proj.associated_ty_id);
+                let trait_datum = self.db().trait_datum(assoc_ty_data.trait_id);
+                if matches!(trait_datum.well_known, Some(WellKnownTrait::FnOnce)) {
+                    let self_ty = &proj.substitution.as_slice(self.interner())[0];
+                    if let Some(ty) = self_ty.ty(self.interner()) {
+                        if let TyKind::Closure(closure_id, substs) = ty.kind(self.interner()) {
+                            // There is only one associated type here, so not gonna check that it's `Output`
+                            let inputs_and_outputs = self.db().closure_inputs_and_output(*closure_id, substs);
+                            if inputs_and_outputs.binders.is_empty(self.interner()) {
+                                let return_type = &inputs_and_outputs.skip_binders().return_type;
+                                if &normalize.ty == return_type {
+                                    return Ok(Solution::Unique(Canonical {
+                                        value: ConstrainedSubst {
+                                            subst: canonical_goal.trivial_substitution(self.interner()),
+                                            constraints: Constraints::empty(self.interner()),
+                                        },
+                                        binders: canonical_goal.canonical.binders.clone(),
+                                    }))
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
 
         let db = self.db();
         let could_match = |c: &ProgramClause<I>| {
