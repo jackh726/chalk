@@ -878,3 +878,36 @@ fn coinductive_wrapper() {
        }
     */
 }
+
+
+#[test]
+fn chalk_688() {
+    test! {
+        program {
+            #[lang(fn_once)]
+            trait FnOnce<Args> {
+                type Output;
+            }
+
+            struct Ordering {}
+
+            closure foo<F>(self,) {}
+
+            impl<A, B, U> FnOnce<(A, B)> for foo<fn(A, B) -> U> {
+                type Output = U;
+            }
+        }
+        goal {
+            exists <R, S, T, U> {
+                <
+                    foo<fn(&'static (R, &'static S), &'static (T, S)) -> Ordering>
+                    as
+                    FnOnce<(&'static (T, U), &'static (T, U))>
+                >::Output
+                = Ordering
+            }
+        } yields[SolverChoice::recursive(150, 500)] {
+            expect![["Ambiguous; no inference guidance"]]
+        }
+    }
+}

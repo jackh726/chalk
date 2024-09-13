@@ -196,7 +196,7 @@ fn closure_implements_fn_traits() {
         goal {
             Normalize(<foo as FnOnce<()>>::Output -> ())
         } yields {
-            expect![["Unique"]]
+            expect!["Ambiguous; no inference guidance"]
         }
 
         // A closure with kind `Fn` implements all `Fn` traits
@@ -218,7 +218,7 @@ fn closure_implements_fn_traits() {
         goal {
             Normalize(<bar as FnOnce<()>>::Output -> ())
         } yields {
-            expect![["Unique"]]
+            expect!["Ambiguous; no inference guidance"]
         }
 
         // A closure with kind `FnMut` implements `FnMut` and `FnOnce`
@@ -240,7 +240,7 @@ fn closure_implements_fn_traits() {
         goal {
             Normalize(<baz as FnOnce<()>>::Output -> ())
         } yields {
-            expect![["Unique"]]
+            expect!["Ambiguous; no inference guidance"]
         }
         // A closure also implements the `Fn` traits regardless of upvars
         goal {
@@ -255,14 +255,14 @@ fn closure_implements_fn_traits() {
                 Normalize(<foobar<'a> as FnOnce<(u8, f32)>>::Output -> u32)
             }
         } yields {
-            expect![["Unique"]]
+            expect!["Ambiguous; no inference guidance"]
         }
         goal {
             forall<'a> {
                 Normalize(<foobar<'a> as FnOnce<(u8, f32)>>::Output -> u32)
             }
         } yields {
-            expect![["Unique"]]
+            expect!["Ambiguous; no inference guidance"]
         }
         goal {
             forall<'a> {
@@ -276,7 +276,7 @@ fn closure_implements_fn_traits() {
                 Normalize(<foobuzz<'a> as FnOnce<(u8, f32)>>::Output -> u32)
             }
         } yields {
-            expect![["Unique"]]
+            expect!["Ambiguous; no inference guidance"]
         }
     }
 }
@@ -366,7 +366,7 @@ fn can_override_closure_traits() {
         goal {
             Normalize(<foo as FnOnce<()>>::Output -> i32)
         } yields {
-            expect![["Unique"]]
+            expect!["Ambiguous; no inference guidance"]
         }
         // and the impl is not wider than expected
         goal {
@@ -397,14 +397,14 @@ fn can_override_closure_traits() {
                 Normalize(<bar as FnOnce<T>>::Output -> T)
             }
         } yields {
-            expect!["Unique; for<?U0> { substitution [?0 := ^0.0] }"]
+            expect!["Ambiguous; no inference guidance"]
         }
         goal {
             exists<T> {
                 Normalize(<bar as FnOnce<T>>::Output -> ())
             }
         } yields {
-            expect!["Unique; substitution [?0 := 0]"]
+            expect!["Ambiguous; no inference guidance"]
         }
 
         // Do not implement `Fn` or 'FnMut' on `&mut self` closure if there's an override
