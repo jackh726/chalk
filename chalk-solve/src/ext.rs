@@ -82,8 +82,16 @@ impl<I: Interner> GoalExt<I> for Goal<I> {
                     }
 
                     GoalData::Implies(wc, subgoal) => {
+                        let clauses = wc.iter(interner).map(|c| {
+                            let data = c.data(interner);
+                            data.0.map_ref(|d| {
+                                assert!(d.conditions.is_empty(interner));
+                                assert!(d.constraints.is_empty(interner));
+                                d.consequence.clone()
+                            })
+                        });
                         let new_environment =
-                            environment.add_clauses(interner, wc.iter(interner).cloned());
+                            environment.add_goals(interner, clauses);
                         env_goal = InEnvironment::new(&new_environment, Goal::clone(subgoal));
                     }
 

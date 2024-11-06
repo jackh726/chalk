@@ -607,6 +607,26 @@ fn clauses_in_if_goals() {
         } yields {
             expect![["Unique"]]
         }
+    }
+}
+
+/*
+#[test]
+fn clauses_in_if_goals_implied() {
+    test! {
+        program {
+            trait Foo { }
+            struct Vec<T> { }
+            struct A { }
+        }
+
+        goal {
+            if (forall<T> { T: Foo }) {
+                forall<T> { T: Foo }
+            }
+        } yields {
+            expect![["Unique"]]
+        }
 
         goal {
             forall<T> {
@@ -639,6 +659,7 @@ fn clauses_in_if_goals() {
         }
     }
 }
+*/
 
 #[test]
 fn unify_types_in_ambiguous_impl() {

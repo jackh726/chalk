@@ -296,8 +296,16 @@ impl<'s, I: Interner, Solver: SolveDatabase<I>> Fulfill<'s, I, Solver> {
                 self.push_goal(environment, subgoal)?;
             }
             GoalData::Implies(wc, subgoal) => {
+                let clauses = wc.iter(interner).map(|c| {
+                    let data = c.data(interner);
+                    data.0.map_ref(|d| {
+                        assert!(d.conditions.is_empty(interner));
+                        assert!(d.constraints.is_empty(interner));
+                        d.consequence.clone()
+                    })
+                });
                 let new_environment =
-                    &environment.add_clauses(interner, wc.iter(interner).cloned());
+                    &environment.add_goals(interner, clauses);
                 self.push_goal(new_environment, subgoal.clone())?;
             }
             GoalData::All(goals) => {

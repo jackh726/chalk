@@ -154,7 +154,7 @@ impl Variance {
 /// universal (forall) quantifiers we're within.
 pub struct Environment<I: Interner> {
     /// The clauses in the environment.
-    pub clauses: ProgramClauses<I>,
+    clauses: ProgramClauses<I>,
 }
 
 impl<I: Interner> Copy for Environment<I> where I::InternedProgramClauses: Copy {}
@@ -167,12 +167,45 @@ impl<I: Interner> Environment<I> {
         }
     }
 
+    pub fn goals(&self, interner: I) -> impl Iterator<Item = Binders<DomainGoal<I>>> + '_ {
+        self.clauses.iter(interner).map(move |c| {
+            let data = c.data(interner);
+            assert!(data.0.value.conditions.is_empty(interner));
+            assert!(data.0.value.constraints.is_empty(interner));
+            data.0.map_ref(|d| d.consequence.clone())
+        })
+    }
+
+    pub fn clauses(&self) -> &ProgramClauses<I> {
+        &self.clauses
+    }
+
     /// Adds (an iterator of) clauses to the environment.
-    pub fn add_clauses<II>(&self, interner: I, clauses: II) -> Self
+    fn add_clauses<II>(&self, interner: I, clauses: II) -> Self
     where
         II: IntoIterator<Item = ProgramClause<I>>,
     {
         let mut env = self.clone();
+        env.clauses =
+            ProgramClauses::from_iter(interner, env.clauses.iter(interner).cloned().chain(clauses));
+        env
+    }
+
+    pub fn add_goals<II>(&self, interner: I, goals: II) -> Self
+    where
+        II: IntoIterator<Item = Binders<DomainGoal<I>>>,
+    {
+        let mut env = self.clone();
+        let clauses = goals.into_iter().map(|g| {
+            ProgramClause::new(interner, ProgramClauseData(g.map(|g| {
+                ProgramClauseImplication {
+                    consequence: g,
+                    conditions: Goals::empty(interner),
+                    constraints: Constraints::empty(interner),
+                    priority: ClausePriority::High,
+                }
+            })))
+        });
         env.clauses =
             ProgramClauses::from_iter(interner, env.clauses.iter(interner).cloned().chain(clauses));
         env

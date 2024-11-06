@@ -52,9 +52,18 @@ impl<I: Interner> Forest<I> {
                     pending_goals.push((environment, subgoal.clone()));
                 }
                 GoalData::Implies(wc, subgoal) => {
-                    let new_environment = environment.add_clauses(
-                        context.program().interner(),
-                        wc.iter(context.program().interner()).cloned(),
+                    let interner = context.program().interner();
+                    let clauses = wc.iter(interner).map(|c| {
+                        let data = c.data(interner);
+                        data.0.map_ref(|d| {
+                            assert!(d.conditions.is_empty(interner));
+                            assert!(d.constraints.is_empty(interner));
+                            d.consequence.clone()
+                        })
+                    });
+                    let new_environment = environment.add_goals(
+                        interner,
+                        clauses,
                     );
                     pending_goals.push((new_environment, subgoal.clone()));
                 }

@@ -1150,7 +1150,7 @@ pub fn program_clauses_for_env<'db, I: Interner>(
     environment: &Environment<I>,
 ) -> ProgramClauses<I> {
     let mut last_round = environment
-        .clauses
+        .clauses()
         .as_slice(db.interner())
         .iter()
         .cloned()
