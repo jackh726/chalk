@@ -148,7 +148,7 @@ impl<I: Interner> Forest<I> {
         strand: &Strand<I>,
     ) -> CanonicalStrand<I> {
         infer
-            .canonicalize(context.program().interner(), strand.clone())
+            .canonicalize_preserving_universes(context.program().interner(), strand.clone())
             .quantified
     }
 
@@ -650,6 +650,7 @@ impl<'forest, I: Interner> SolveState<'forest, I> {
                     self.context.program().interner(),
                     &self.forest.answer(subgoal_table, answer_index).subst,
                 );
+                debug!(?table_goal, ?answer_subst, ?universe_map);
                 match infer.apply_answer_subst(
                     self.context.program().interner(),
                     self.context.unification_database(),

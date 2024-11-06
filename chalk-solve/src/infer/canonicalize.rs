@@ -48,7 +48,8 @@ impl<I: Interner> InferenceTable<I> {
         let free_vars = q.free_vars.clone();
 
         let binders = q.into_binders();
-        debug_span!("u_canonicalize", "{:#?}", value);
+        debug_span!("u_canonicalize", "{:#?}",value);
+        debug!(?binders);
 
         // First, find all the universes that appear in `value`.
         let mut universes = UniverseMap::new();
@@ -90,6 +91,47 @@ impl<I: Interner> InferenceTable<I> {
                 value: value1,
                 binders,
                 universes: universes.num_canonical_universes(),
+            },
+            free_vars,
+            universes,
+        };
+        debug!(?canonicalized);
+        canonicalized
+    }
+
+    pub fn canonicalize_preserving_universes<T>(&mut self, interner: I, value: T) -> Canonicalized<T>
+    where
+        T: TypeFoldable<I> + TypeVisitable<I> + Clone,
+        T: HasInterner<Interner = I>,
+    {
+        debug_span!("canonicalize", "{:#?}", value);
+        let mut q = Canonicalizer {
+            table: self,
+            free_vars: Vec::new(),
+            max_universe: UniverseIndex::root(),
+            interner,
+        };
+        let value = value
+            .try_fold_with(&mut q, DebruijnIndex::INNERMOST)
+            .unwrap();
+        let free_vars = q.free_vars.clone();
+
+        let binders = q.into_binders();
+
+        let mut max_universe = UniverseIndex::ROOT;
+        for universe in binders.iter(interner) {
+            max_universe = max_universe.max(*universe.skip_kind())
+        }
+        let mut universes = UniverseMap::new();
+        for universe in 0..=max_universe.counter {
+            universes.add(UniverseIndex { counter: universe })
+        }
+
+        let canonicalized = Canonicalized {
+            quantified: Canonical {
+                value,
+                binders,
+                universes: max_universe.counter + 1,
             },
             free_vars,
             universes,

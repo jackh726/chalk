@@ -5,6 +5,7 @@ use chalk_ir::interner::{HasInterner, Interner};
 use chalk_ir::visit::{TypeVisitable, TypeVisitor};
 use chalk_ir::*;
 use std::ops::ControlFlow;
+use tracing::debug;
 
 use super::InferenceTable;
 
@@ -53,7 +54,7 @@ impl<I: Interner> InferenceTable<I> {
                 .map(|pk| pk.map_ref(|&ui| universes.map_universe_to_canonical(ui).unwrap())),
         );
 
-        UCanonicalized {
+        let u_canonicalized = UCanonicalized {
             quantified: UCanonical {
                 universes: universes.num_canonical_universes(),
                 canonical: Canonical {
@@ -63,7 +64,9 @@ impl<I: Interner> InferenceTable<I> {
                 },
             },
             universes,
-        }
+        };
+        debug!(?u_canonicalized);
+        u_canonicalized
     }
 }
 
